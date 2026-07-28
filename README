@@ -1,0 +1,3 @@
+# Password Manager
+
+This project is a complete remake of my original password manager written in java. This was one of my first coding projects, so I decided to fully redesign it with a better ui and internal code. It uses gtk 4.0 + blueprint for graphics. Currently, it only contains the main login screen; the rest is coming in later commits.

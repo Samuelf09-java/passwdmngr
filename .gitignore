@@ -1,0 +1,32 @@
+# Build output
+build/
+passwdmngr
+
+# Compiled resources
+data/login_window.ui
+*.gresource
+*.gresource.c
+
+# Object files
+*.o
+*.lo
+*.la
+*.al
+
+# Executables
+a.out
+
+# Debug files
+*.gdb
+*.log
+
+# Editor/IDE files
+*.swp
+*.swo
+*.kate-swp
+*.vscode/
+*.idea/
+
+# OS junk
+.DS_Store
+Thumbs.db
