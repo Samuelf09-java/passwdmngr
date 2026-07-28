@@ -2,6 +2,11 @@
 build/
 passwdmngr
 
+# TODO: remove
+# Leftover from a first attempt
+src.old/
+include.old/
+
 # Compiled resources
 data/login_window.ui
 *.gresource
