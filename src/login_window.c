@@ -1,4 +1,5 @@
 #include "login_window.h"
+#include "main_window.h"
 #include "utils.h"
 
 struct _LoginWindow {
@@ -17,6 +18,11 @@ static void on_login_clicked(GtkButton *button, LoginWindow *self) {
     const char *passwd = gtk_editable_get_text(GTK_EDITABLE(self->passwd_entry));
 
     g_print("uname: %s, passwd: %s\n", uname, passwd);
+
+    // TODO: validate login
+
+    MainWindow *mainwin = main_window_new(gtk_window_get_application(GTK_WINDOW(self)));
+    gtk_window_present(GTK_WINDOW(mainwin));    gtk_window_destroy(GTK_WINDOW(self));
 }
 
 static void on_account_button_clicked(GtkButton *button, LoginWindow *self) {

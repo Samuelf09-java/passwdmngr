@@ -10,9 +10,7 @@ include.old/
 # Compiled resources
 *.gresource
 *.gresource.c
-
-# .ui files under data/ are from blueprint
-data/*.ui
+resources/generated/
 
 # Object files
 *.o

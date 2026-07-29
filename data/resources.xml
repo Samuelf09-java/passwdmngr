@@ -1,7 +1,0 @@
-<gresources>
-  <gresource prefix="/com/samuelf09/passwdmngr">
-    <file>login_window.ui</file>
-    <file>style.css</file>
-    <file>logo.png</file>
-  </gresource>
-</gresources>

@@ -7,8 +7,8 @@ BLUEPRINT = blueprint-compiler
 SRC = $(wildcard src/*.c)
 OBJ = $(patsubst src/%.c, build/%.o, $(SRC))
 
-BLP = $(wildcard ui/*.blp)
-UI = $(patsubst ui/%.blp, data/%.ui, $(BLP))
+BLP = $(wildcard resources/ui/*.blp)
+UI = $(patsubst resources/ui/%.blp, resources/generated/%.ui, $(BLP))
 
 TARGET = passwdmngr
 
@@ -22,12 +22,12 @@ build/%.o: src/%.c | build
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # Compile blueprint
-data/%.ui: ui/%.blp | build
+resources/generated/%.ui: resources/ui/%.blp | build
 	$(BLUEPRINT) compile $< > $@
 
 # Compile gresources
-build/resources.c: data/resources.xml $(UI)
-	cd data && glib-compile-resources resources.xml \
+build/resources.c: resources/resources.xml $(UI)
+	cd resources && glib-compile-resources resources.xml \
 		--target=../build/resources.c \
 		--generate-source && cd ..
 
