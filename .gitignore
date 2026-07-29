@@ -8,9 +8,11 @@ src.old/
 include.old/
 
 # Compiled resources
-data/login_window.ui
 *.gresource
 *.gresource.c
+
+# .ui files under data/ are from blueprint
+data/*.ui
 
 # Object files
 *.o
