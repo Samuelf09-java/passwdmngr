@@ -1,4 +1,5 @@
 #include "login_window.h"
+#include "utils.h"
 
 struct _LoginWindow {
     GtkApplicationWindow parent_instance;
@@ -30,13 +31,13 @@ static void login_window_class_init(LoginWindowClass *klass) {
         "/com/samuelf09/passwdmngr/login_window.ui"
     );
 
-    gtk_widget_class_bind_template_child(widget_class, LoginWindow, logo);
-    gtk_widget_class_bind_template_child(widget_class, LoginWindow, uname_entry);
-    gtk_widget_class_bind_template_child(widget_class, LoginWindow, passwd_entry);
-    gtk_widget_class_bind_template_child(widget_class, LoginWindow, login_button);
+    REGISTER_CHILD(LoginWindow, logo);
+    REGISTER_CHILD(LoginWindow, uname_entry);
+    REGISTER_CHILD(LoginWindow, passwd_entry);
+    REGISTER_CHILD(LoginWindow, login_button);
 
-    gtk_widget_class_bind_template_callback(widget_class, on_login_clicked);
-    gtk_widget_class_bind_template_callback(widget_class, on_account_button_clicked);
+    REGISTER_CALLBACK(on_login_clicked);
+    REGISTER_CALLBACK(on_account_button_clicked);
 }
 
 static void login_window_init(LoginWindow *self) {
