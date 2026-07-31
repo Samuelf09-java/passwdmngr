@@ -2,6 +2,7 @@
   <gresource prefix="/com/samuelf09/passwdmngr">
     <file alias="login_window.ui">generated/login_window.ui</file>
     <file alias="main_window.ui">generated/main_window.ui</file>
+    <file alias="account_creation_window.ui">generated/account_creation_window.ui</file>
     <file alias="main_menu.ui">ui/main_menu.ui</file>
     <file alias="style.css">css/style.css</file>
     <file alias="logo.png">icons/hicolor/128x128/apps/logo.png</file>

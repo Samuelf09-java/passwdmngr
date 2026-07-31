@@ -1,0 +1,67 @@
+using Gtk 4.0;
+
+template $AccountCreationWindow : ApplicationWindow {
+    title: _("Password Manager - Create New Account");
+    default-width: 1200;
+    default-height: 800;
+
+    Box {
+        orientation: vertical;
+        halign: center;
+        valign: center;
+
+        Box {
+            orientation: vertical;
+
+            css-classes: ["login-panel"];
+            spacing: 12;
+            margin-top: 20;
+            margin-bottom: 20;
+            margin-start: 20;
+            margin-end: 20;
+
+            valign: center;
+            halign: center;
+
+            Image logo {
+                resource: "/com/samuelf09/passwdmngr/logo.png";
+                pixel-size: 128;
+            }
+
+            Entry uname_entry {
+                width-request: 300;
+                hexpand: false;
+
+                placeholder-text: _("Enter username...");
+            }
+
+            PasswordEntry passwd_entry {
+                width-request: 300;
+                hexpand: false;
+
+                show-peek-icon: true;
+
+                placeholder-text: _("Enter new password...");
+            }
+
+            PasswordEntry confirm_passwd_entry {
+                width-request: 300;
+                hexpand: false;
+
+                show-peek-icon: true;
+
+                placeholder-text: _("Confirm new password...");
+            }
+
+            Button create_account_button {
+                label: _("Create account");
+                clicked => $on_create_account_clicked();
+            }
+
+            Button cancel_button {
+                label: _("Cancel");
+                clicked => $on_cancel_clicked();
+            }
+        }
+    }
+}

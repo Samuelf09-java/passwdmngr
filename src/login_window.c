@@ -3,6 +3,7 @@
 #include "util.h"
 #include "crypto.h"
 #include "main.h"
+#include "account_creation_window.h"
 
 struct _LoginWindow {
     GtkApplicationWindow parent_instance;
@@ -15,12 +16,16 @@ struct _LoginWindow {
 
 G_DEFINE_FINAL_TYPE(LoginWindow, login_window, GTK_TYPE_APPLICATION_WINDOW)
 
+LoginWindow *login_window_new(GtkApplication *app) {
+    return g_object_new(LOGIN_WINDOW_TYPE, "application", app, NULL);
+}
+
 static void on_login_clicked(GtkButton *button, LoginWindow *self) {
     const char *uname = gtk_editable_get_text(GTK_EDITABLE(self->uname_entry));
     const char *passwd = gtk_editable_get_text(GTK_EDITABLE(self->passwd_entry));
 
     if (verify_account(uname, passwd)) {
-        MainWindow *mainwin = main_window_new(gtk_window_get_application(GTK_WINDOW(self)));
+        MainWindow *mainwin = main_window_new(passwdmngr);
         current_window = GTK_WINDOW(mainwin);
         gtk_window_present(GTK_WINDOW(mainwin));
         gtk_window_destroy(GTK_WINDOW(self));
@@ -30,7 +35,10 @@ static void on_login_clicked(GtkButton *button, LoginWindow *self) {
 }
 
 static void on_account_button_clicked(GtkButton *button, LoginWindow *self) {
-    g_print("*create account*\n");
+    AccountCreationWindow *create_account_win = account_creation_window_new(passwdmngr);
+    current_window = GTK_WINDOW(create_account_win);
+    gtk_window_present(GTK_WINDOW(create_account_win));
+    gtk_window_destroy(GTK_WINDOW(self));
 }
 
 static void login_window_class_init(LoginWindowClass *klass) {
