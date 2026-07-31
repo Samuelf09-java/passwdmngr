@@ -1,6 +1,6 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -g -I./include `pkg-config --cflags gtk4`
-LDFLAGS = `pkg-config --libs gtk4` -lsodium
+CFLAGS = -Wall -Wextra -g -I./include `pkg-config --cflags gtk4 json-glib-1.0`
+LDFLAGS = `pkg-config --libs gtk4 json-glib-1.0` -lsodium -lcrypto -lssl
 
 BLUEPRINT = blueprint-compiler
 

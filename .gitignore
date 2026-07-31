@@ -2,11 +2,6 @@
 build/
 passwdmngr
 
-# TODO: remove
-# Leftover from a first attempt
-src.old/
-include.old/
-
 # Compiled resources
 *.gresource
 *.gresource.c
@@ -24,6 +19,7 @@ a.out
 # Debug files
 *.gdb
 *.log
+.gdb_history
 
 # Editor/IDE files
 *.swp

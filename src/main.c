@@ -1,7 +1,16 @@
-#include <gtk/gtk.h>
+#include <sys/stat.h>
+#include <sodium.h>
 #include "login_window.h"
+#include "storage.h"
+#include "util.h"
+#include "main.h"
+
+GtkApplication *passwdmngr = NULL;
+GtkWindow *current_window = NULL;
 
 static void on_activate(GtkApplication *app) {
+    passwdmngr = app;
+
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_resource(provider, "/com/samuelf09/passwdmngr/style.css");
 
@@ -17,6 +26,45 @@ static void on_activate(GtkApplication *app) {
         NULL
     );
 
+    current_window = GTK_WINDOW(win);
+
+    if (sodium_init() < 0) {
+        util_fatal("Failed to initialize libsodium");
+        return;
+    }
+
+    // Load accounts.json
+    if (!load_accounts()) {
+        util_fatal("Failed to load account data from accounts.json");
+    }
+
+    // Verify app files are present
+    char *root = util_get_app_dir();
+    if (!root) {
+        util_fatal("Could not determine user data directory.");
+        return;
+    }
+
+    if (!dir_exists(root)) mkdir(root, 0755);
+
+    char *users_dir = malloc(strlen(root) + strlen("users") + 2);
+    sprintf(users_dir, "%s/users", root);
+    if (!dir_exists(users_dir)) mkdir(users_dir, 0755);
+
+    char *accounts_path = malloc(strlen(root) + strlen("accounts.json") + 2);
+    sprintf(accounts_path, "%s/accounts.json", root);
+
+    FILE *fp = fopen(accounts_path, "a");
+    if (!fp) {
+        util_fatal("Could not create accounts.json");
+        return;
+    }
+    fclose(fp);
+
+    free(users_dir);
+    free(accounts_path);
+    free(root);
+    
     gtk_window_present(GTK_WINDOW(win));
 }
 

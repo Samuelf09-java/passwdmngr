@@ -1,5 +1,5 @@
 #include "main_window.h"
-#include "utils.h"
+#include "util.h"
 
 struct _MainWindow {
     GtkApplicationWindow parent_instance;
