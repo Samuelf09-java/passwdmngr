@@ -28,6 +28,7 @@ static void on_login_clicked(GtkButton *button, LoginWindow *self) {
 
     if (verify_account(uname, passwd)) {
         username = strdup(uname);
+        tmp_passwd = strdup(passwd);
 
         MainWindow *mainwin = main_window_new(passwdmngr);
         current_window = GTK_WINDOW(mainwin);

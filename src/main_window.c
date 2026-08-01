@@ -44,13 +44,10 @@ static void main_window_init(MainWindow *self) {
     gtk_window_set_title(GTK_WINDOW(self), title);
     free(title);
 
-    struct Metadata *md = storage_read_user_metadata();
-    if (!md) {
-        util_fatal("Could not read user's metadata");
-    }
+    Metadata *md = storage_read_user_metadata();
+    if (!md) util_fatal("Could not read user's metadata");
     
-    if (md->version != STORAGE_SCHEMA_VERSION) {
-        util_fatal("Invalid storage schema version; update with porting tool if applicable");
-    }
-    
+    if (md->version != STORAGE_SCHEMA_VERSION) util_fatal("Invalid storage schema version; update with porting tool if applicable");
+
+    if (!storage_read_user_vault(md)) util_fatal("Failed to read user vault; check stderr for more information");   
 }

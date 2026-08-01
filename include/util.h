@@ -3,11 +3,11 @@
 
 extern const char PATH_SEPARATOR;
 
-// Use with `GtkWidgetClass *widget_class = GTK_WIDGET_CLASS(klass);` in
+// Used with `GtkWidgetClass *widget_class = GTK_WIDGET_CLASS(klass);`
 #define REGISTER_CALLBACK(cb) gtk_widget_class_bind_template_callback(widget_class, cb)
 #define REGISTER_CHILD(type, name) gtk_widget_class_bind_template_child(widget_class, type, name)
 
-#define X(x) (void)(x) // for suppressing compiler warnings
+#define X(x) (void)(x) // suppress 'unused parameter' compiler warnings with void cast
 
 #define STORAGE_SCHEMA_VERSION 1
 

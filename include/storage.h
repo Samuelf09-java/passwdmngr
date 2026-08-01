@@ -2,9 +2,15 @@
 
 #include <stdbool.h>
 #include <time.h>
+#include <stdint.h>
 
 extern int num_accounts;
 extern struct Account *accounts;
+extern struct PasswdEntry *entries;
+
+extern char *tmp_passwd;
+extern uint8_t aes_key[];
+extern bool key_set; // whether key has been loaded yet; used to verify key is valid before attempting to use it
 
 extern char *username;
 extern int num_entries;
@@ -22,6 +28,8 @@ struct Account {
 };
 
 struct PasswdEntry {
+    int id;
+    char *service;
     char *username;
     char *password;
     char *notes;
@@ -34,10 +42,16 @@ struct Metadata {
     char *vault_salt;
 };
 
+typedef struct Account Account;
+typedef struct PasswdEntry PasswdEntry;
+typedef struct Metadata Metadata;
 
 char *storage_get_user_dir(char *uname);
-struct Metadata *storage_read_user_metadata();
-struct PasswdEntry *storage_read_user_vault();
 
-bool storage_write_metadata(struct Metadata *data);
-bool storage_write_vault(struct PasswdEntry *entries, int count);
+Metadata *storage_read_user_metadata();
+bool storage_read_user_vault(Metadata *md);
+bool storage_write_metadata(Metadata *data);
+bool storage_write_user_vault(Metadata *md);
+
+bool add_entry(PasswdEntry *entry, Metadata *md);
+bool delete_entry(PasswdEntry *entry);

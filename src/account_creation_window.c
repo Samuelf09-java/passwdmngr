@@ -32,6 +32,8 @@ static void on_create_account_clicked(GtkButton *button, AccountCreationWindow *
     }
 
     if (!strcmp(passwd, confirm_passwd)) {
+        tmp_passwd = strdup(passwd);
+
         bool res = create_new_account(uname, passwd);
         if (!res) util_nonfatal("Could not create account; check stderr for more information");
         else {
