@@ -8,6 +8,8 @@ extern struct Account *accounts;
 
 bool load_accounts();
 void free_accounts();
+void init_accounts_json();
+void save_accounts();
 
 bool create_new_account(char *uname, char *passwd);
 

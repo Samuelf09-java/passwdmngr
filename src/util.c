@@ -54,16 +54,20 @@ int dir_exists(const char *path) {
     return (stat(path, &st) == 0 && S_ISDIR(st.st_mode));
 }
 
+void util_info(const char *msg) {
+    g_print("[passwdmngr/INFO]: %s\n", msg);
+}
+
 void util_error(const char *msg) {
-    g_printerr("Error: %s\n", msg);
+    g_printerr("[passwdmngr/ERROR]: %s\n", msg);
 }
 
 void util_error_dialog(GtkWindow *parent, const char *msg, enum ErrorType error_type, GtkApplication *app) {
 
     char *prefix = NULL;
 
-    if (error_type == NONFATAL) prefix = "Error: ";
-    else                        prefix = "FATAL ERROR: ";
+    if (error_type == NONFATAL) prefix = "[passwdmngr/ERROR]: ";
+    else                        prefix = "[passwdmngr/FATAL ERROR]: ";
 
     size_t msg_len = strlen(msg) + strlen(prefix) + 1;
     char *error_msg = malloc(msg_len);

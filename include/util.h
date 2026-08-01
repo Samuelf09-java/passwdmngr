@@ -15,6 +15,8 @@ enum ErrorType {
 char *util_get_app_dir();
 int dir_exists(const char *path);
 
+void util_info(const char *msg);
+
 void util_error(const char *msg);
 void util_error_dialog(GtkWindow *parent, const char *msg, enum ErrorType error_type, GtkApplication *app);
 void util_fatal(const char *msg);

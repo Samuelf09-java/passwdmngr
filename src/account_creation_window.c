@@ -25,6 +25,11 @@ static void on_create_account_clicked(GtkButton *button, AccountCreationWindow *
     const char *passwd = gtk_editable_get_text(GTK_EDITABLE(self->passwd_entry));
     const char *confirm_passwd = gtk_editable_get_text(GTK_EDITABLE(self->confirm_passwd_entry));
 
+    if (strlen(uname) == 0 || strlen(passwd) == 0 || strlen(confirm_passwd) == 0) {
+        util_nonfatal("Could not create account: fields cannot be blank");
+        return;
+    }
+
     if (!strcmp(passwd, confirm_passwd)) {
         bool res = create_new_account(uname, passwd);
         if (!res) util_nonfatal("Could not create account; check stderr for more information");

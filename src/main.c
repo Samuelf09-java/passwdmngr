@@ -7,6 +7,7 @@
 
 GtkApplication *passwdmngr = NULL;
 GtkWindow *current_window = NULL;
+char *accounts_path = NULL;
 
 static void on_activate(GtkApplication *app) {
     passwdmngr = app;
@@ -33,11 +34,6 @@ static void on_activate(GtkApplication *app) {
         return;
     }
 
-    // Load accounts.json
-    if (!load_accounts()) {
-        util_fatal("Failed to load account data from accounts.json");
-    }
-
     // Verify app files are present
     char *root = util_get_app_dir();
     if (!root) {
@@ -47,23 +43,28 @@ static void on_activate(GtkApplication *app) {
 
     if (!dir_exists(root)) mkdir(root, 0755);
 
-    char *users_dir = malloc(strlen(root) + strlen("users") + 2);
-    sprintf(users_dir, "%s/users", root);
+    char *users_dir = malloc(strlen(root) + strlen("users") + 1);
+    sprintf(users_dir, "%susers", root);
     if (!dir_exists(users_dir)) mkdir(users_dir, 0755);
 
-    char *accounts_path = malloc(strlen(root) + strlen("accounts.json") + 2);
-    sprintf(accounts_path, "%s/accounts.json", root);
+    accounts_path = malloc(strlen(root) + strlen("accounts.json") + 1);
+    sprintf(accounts_path, "%saccounts.json", root);
 
-    FILE *fp = fopen(accounts_path, "a");
-    if (!fp) {
-        util_fatal("Could not create accounts.json");
-        return;
-    }
-    fclose(fp);
+    struct stat st;
+    bool file_missing = (stat(accounts_path, &st) != 0);
+    bool file_empty   = (!file_missing && st.st_size == 0);
+
+    // If accounts.json does not exist, write empty array
+    if (file_missing || file_empty) init_accounts_json(accounts_path);
 
     free(users_dir);
-    free(accounts_path);
     free(root);
+
+    // Load accounts.json
+    if (!load_accounts(accounts_path)) {
+        free(accounts_path);
+        util_fatal("Failed to load account data from accounts.json; see stderr for more information");
+    }
     
     gtk_window_present(GTK_WINDOW(win));
 }

@@ -29,8 +29,10 @@ static void on_login_clicked(GtkButton *button, LoginWindow *self) {
         current_window = GTK_WINDOW(mainwin);
         gtk_window_present(GTK_WINDOW(mainwin));
         gtk_window_destroy(GTK_WINDOW(self));
+
+        util_info("Login successful");
     } else {
-        // TODO: fail dialog
+        util_nonfatal("Invalid username or password");
     }
 }
 
