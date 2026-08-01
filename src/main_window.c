@@ -1,5 +1,6 @@
 #include "main_window.h"
 #include "util.h"
+#include "storage.h"
 
 struct _MainWindow {
     GtkApplicationWindow parent_instance;
@@ -32,10 +33,24 @@ static void main_window_init(MainWindow *self) {
     );
 
     GMenuModel *menu = G_MENU_MODEL(gtk_builder_get_object(builder, "main_menu"));
-
     GtkWidget *menubar = gtk_popover_menu_bar_new_from_model(menu);
-
     gtk_box_append(GTK_BOX(self->menubar_box), menubar);
 
     g_object_unref(builder);
+
+    char *title = malloc(strlen("Password Manager - ") + strlen(username) + 1);
+    if (!title) util_error("Window title malloc failed");
+    sprintf(title, "Password Manager - %s", username);
+    gtk_window_set_title(GTK_WINDOW(self), title);
+    free(title);
+
+    struct Metadata *md = storage_read_user_metadata();
+    if (!md) {
+        util_fatal("Could not read user's metadata");
+    }
+    
+    if (md->version != STORAGE_SCHEMA_VERSION) {
+        util_fatal("Invalid storage schema version; update with porting tool if applicable");
+    }
+    
 }

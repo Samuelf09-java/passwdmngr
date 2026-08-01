@@ -6,6 +6,9 @@
 extern int num_accounts;
 extern struct Account *accounts;
 
+extern char *username;
+extern int num_entries;
+
 bool load_accounts();
 void free_accounts();
 void init_accounts_json();
@@ -25,14 +28,16 @@ struct PasswdEntry {
 };
 
 struct Metadata {
+    int version;
     time_t last_modified;
-    int entries;
+    int num_entries;
+    char *vault_salt;
 };
 
 
 char *storage_get_user_dir(char *uname);
-struct Metadata *storage_read_user_metadata(char *dir);
-struct PasswdEntry *storage_read_user_vault(char *dir, int *count);
+struct Metadata *storage_read_user_metadata();
+struct PasswdEntry *storage_read_user_vault();
 
-bool storage_write_metadata(char *dir, struct Metadata *data);
-bool storage_write_vault(char *dir, struct PasswdEntry *entries, int count);
+bool storage_write_metadata(struct Metadata *data);
+bool storage_write_vault(struct PasswdEntry *entries, int count);

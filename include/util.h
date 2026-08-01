@@ -7,6 +7,10 @@ extern const char PATH_SEPARATOR;
 #define REGISTER_CALLBACK(cb) gtk_widget_class_bind_template_callback(widget_class, cb)
 #define REGISTER_CHILD(type, name) gtk_widget_class_bind_template_child(widget_class, type, name)
 
+#define X(x) (void)(x) // for suppressing compiler warnings
+
+#define STORAGE_SCHEMA_VERSION 1
+
 enum ErrorType {
     FATAL,
     NONFATAL

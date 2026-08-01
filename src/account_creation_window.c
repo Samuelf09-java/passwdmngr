@@ -21,9 +21,10 @@ AccountCreationWindow *account_creation_window_new(GtkApplication *app) {
 }
 
 static void on_create_account_clicked(GtkButton *button, AccountCreationWindow *self) {
-    const char *uname = gtk_editable_get_text(GTK_EDITABLE(self->uname_entry));
-    const char *passwd = gtk_editable_get_text(GTK_EDITABLE(self->passwd_entry));
-    const char *confirm_passwd = gtk_editable_get_text(GTK_EDITABLE(self->confirm_passwd_entry));
+    X(button);
+    char *uname = gtk_editable_get_text(GTK_EDITABLE(self->uname_entry));
+    char *passwd = gtk_editable_get_text(GTK_EDITABLE(self->passwd_entry));
+    char *confirm_passwd = gtk_editable_get_text(GTK_EDITABLE(self->confirm_passwd_entry));
 
     if (strlen(uname) == 0 || strlen(passwd) == 0 || strlen(confirm_passwd) == 0) {
         util_nonfatal("Could not create account: fields cannot be blank");
@@ -38,6 +39,8 @@ static void on_create_account_clicked(GtkButton *button, AccountCreationWindow *
             current_window = GTK_WINDOW(mainwin);
             gtk_window_present(GTK_WINDOW(mainwin));
             gtk_window_destroy(GTK_WINDOW(self));
+
+            util_info("New user login successful");
         }
     } else {
         util_nonfatal("Could not create account: passwords do not match");
@@ -45,6 +48,7 @@ static void on_create_account_clicked(GtkButton *button, AccountCreationWindow *
 }
 
 static void on_cancel_clicked(GtkButton *button, AccountCreationWindow *self) {
+    X(button);
     LoginWindow *loginwin = login_window_new(passwdmngr);
     current_window = GTK_WINDOW(loginwin);
     gtk_window_present(GTK_WINDOW(loginwin));

@@ -36,6 +36,11 @@ bool verify_account(const char *uname, const char *passwd) {
 
 int hash_pw(const char *passwd, char *out, size_t out_len) {
 
+    if (out_len != crypto_pwhash_STRBYTES) {
+        util_error("Invalid output length for hashing password");
+        return -1;
+    }
+
     return crypto_pwhash_str(
         out,
         passwd,
@@ -71,10 +76,33 @@ char *hash_uname(const char *uname, size_t len) {
     return uname_hash;
 }
 
+bool derive_vault_key(
+    const char *passwd,
+    const uint8_t *salt,
+    uint8_t *key_out,
+    size_t key_len)
+{
+    if (key_len != 32) return false;
+
+    if (crypto_pwhash(
+            key_out, key_len,
+            passwd, strlen(passwd),
+            salt,
+            crypto_pwhash_OPSLIMIT_INTERACTIVE,
+            crypto_pwhash_MEMLIMIT_INTERACTIVE,
+            crypto_pwhash_ALG_DEFAULT) != 0) {
+        return false;
+    }
+
+    return true;
+}
+
 int aes_gcm_encrypt(
-    uint8_t *plaintext, int plaintext_len,
+    uint8_t *plaintext,
+    int plaintext_len,
     uint8_t *key,
-    uint8_t *iv, int iv_len,
+    uint8_t *iv,
+    int iv_len,
     uint8_t *ciphertext,
     uint8_t *tag)
 {

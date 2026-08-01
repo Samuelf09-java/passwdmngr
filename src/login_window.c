@@ -4,6 +4,7 @@
 #include "crypto.h"
 #include "main.h"
 #include "account_creation_window.h"
+#include "storage.h"
 
 struct _LoginWindow {
     GtkApplicationWindow parent_instance;
@@ -21,10 +22,13 @@ LoginWindow *login_window_new(GtkApplication *app) {
 }
 
 static void on_login_clicked(GtkButton *button, LoginWindow *self) {
+    X(button);
     const char *uname = gtk_editable_get_text(GTK_EDITABLE(self->uname_entry));
     const char *passwd = gtk_editable_get_text(GTK_EDITABLE(self->passwd_entry));
 
     if (verify_account(uname, passwd)) {
+        username = strdup(uname);
+
         MainWindow *mainwin = main_window_new(passwdmngr);
         current_window = GTK_WINDOW(mainwin);
         gtk_window_present(GTK_WINDOW(mainwin));
@@ -37,6 +41,7 @@ static void on_login_clicked(GtkButton *button, LoginWindow *self) {
 }
 
 static void on_account_button_clicked(GtkButton *button, LoginWindow *self) {
+    X(button);
     AccountCreationWindow *create_account_win = account_creation_window_new(passwdmngr);
     current_window = GTK_WINDOW(create_account_win);
     gtk_window_present(GTK_WINDOW(create_account_win));
