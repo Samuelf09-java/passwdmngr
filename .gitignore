@@ -20,6 +20,7 @@ a.out
 *.gdb
 *.log
 .gdb_history
+vgcore*
 
 # Editor/IDE files
 *.swp

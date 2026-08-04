@@ -1,25 +1,12 @@
-#include "login_window.h"
-#include "main_window.h"
+#include "ui/login_window.h"
+#include "ui/main_window.h"
 #include "util.h"
 #include "crypto.h"
 #include "main.h"
-#include "account_creation_window.h"
+#include "ui/account_creation_window.h"
 #include "storage.h"
 
-struct _LoginWindow {
-    GtkApplicationWindow parent_instance;
-
-    GtkWidget *logo;
-    GtkWidget *uname_entry;
-    GtkWidget *passwd_entry;
-    GtkWidget *login_button;
-};
-
-G_DEFINE_FINAL_TYPE(LoginWindow, login_window, GTK_TYPE_APPLICATION_WINDOW)
-
-LoginWindow *login_window_new(GtkApplication *app) {
-    return g_object_new(LOGIN_WINDOW_TYPE, "application", app, NULL);
-}
+G_DEFINE_FINAL_TYPE(LoginWindow, login_window, GTK_TYPE_BOX)
 
 static void on_login_clicked(GtkButton *button, LoginWindow *self) {
     X(button);
@@ -30,10 +17,8 @@ static void on_login_clicked(GtkButton *button, LoginWindow *self) {
         username = strdup(uname);
         tmp_passwd = strdup(passwd);
 
-        MainWindow *mainwin = main_window_new(passwdmngr);
-        current_window = GTK_WINDOW(mainwin);
-        gtk_window_present(GTK_WINDOW(mainwin));
-        gtk_window_destroy(GTK_WINDOW(self));
+        MainWindow *mainwin = g_object_new(MAIN_WINDOW_TYPE, NULL);
+        gtk_window_set_child(GTK_WINDOW(root_window), GTK_WIDGET(mainwin));
 
         util_info("Login successful");
     } else {
@@ -43,10 +28,8 @@ static void on_login_clicked(GtkButton *button, LoginWindow *self) {
 
 static void on_account_button_clicked(GtkButton *button, LoginWindow *self) {
     X(button);
-    AccountCreationWindow *create_account_win = account_creation_window_new(passwdmngr);
-    current_window = GTK_WINDOW(create_account_win);
-    gtk_window_present(GTK_WINDOW(create_account_win));
-    gtk_window_destroy(GTK_WINDOW(self));
+    AccountCreationWindow *create_account_win = g_object_new(ACCOUNT_CREATION_WINDOW_TYPE, NULL);
+    gtk_window_set_child(GTK_WINDOW(root_window), GTK_WIDGET(create_account_win));
 }
 
 static void login_window_class_init(LoginWindowClass *klass) {
@@ -68,4 +51,6 @@ static void login_window_class_init(LoginWindowClass *klass) {
 
 static void login_window_init(LoginWindow *self) {
     gtk_widget_init_template(GTK_WIDGET(self));
+
+    gtk_window_set_title(GTK_WINDOW(root_window), "Password Manager - Login");
 }

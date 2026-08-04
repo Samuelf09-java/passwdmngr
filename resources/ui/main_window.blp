@@ -1,46 +1,46 @@
 using Gtk 4.0;
 
-template $MainWindow : ApplicationWindow {
-    title: _("Password Manager");
-    default-width: 1200;
-    default-height: 800;
+template $MainWindow : Box {
 
-    
+    orientation: vertical;
 
-    Box {
-        orientation: vertical;
+    Box menubar_box {}
 
-        Box menubar_box {
-            
-        }
+    Paned {
+        orientation: horizontal;
 
-        Paned {
-            orientation: horizontal;
+        ScrolledWindow sidebar {
+            min-content-width: 250;
+            max-content-height: 350;
+            vexpand: true;
 
-            ScrolledWindow sidebar {
-                min-content-width: 250;
-                max-content-height: 350;
-                vexpand: true;
-
-                Box {
-                    orientation: vertical;
-                    spacing: 12;
-
-                    Label { label: _("placeholder 1"); }
-                    Label { label: _("placeholder 2"); }
-                    Label { label: _("placeholder 3"); }
-                }
-            }
-
-            Box content_area {
+            Box {
                 orientation: vertical;
-                hexpand: true;
-                vexpand: true;
+
+                spacing: 5;
+                margin-top: 5;
 
                 Label {
-                    label: _("Content");
+                    label: _("Select service");
+                }
+
+                ListBox entries_listbox {
+                    selection-mode: single;
+                    vexpand: true;
+                    row-selected => $on_entry_selected();
+                }
+
+                Button add_entry_button {
+                    label: _("Add entry");
+                    clicked => $on_add_entry_clicked();
                 }
             }
+        }
+
+        Box content_area {
+            orientation: vertical;
+            hexpand: true;
+            vexpand: true;
         }
     }
 }

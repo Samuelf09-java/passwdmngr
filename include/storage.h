@@ -53,5 +53,9 @@ bool storage_read_user_vault(Metadata *md);
 bool storage_write_metadata(Metadata *data);
 bool storage_write_user_vault(Metadata *md);
 
-bool add_entry(PasswdEntry *entry, Metadata *md);
-bool delete_entry(PasswdEntry *entry);
+int storage_assign_new_id();
+PasswdEntry *storage_get_entry(int id);
+
+bool add_entry(PasswdEntry *entry);
+bool delete_entry(int id);
+bool update_entry(int id, PasswdEntry *new_entry);

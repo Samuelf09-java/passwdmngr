@@ -1,59 +1,47 @@
 using Gtk 4.0;
 
-template $LoginWindow : ApplicationWindow {
-    title: _("Password Manager - Login");
-    default-width: 1200;
-    default-height: 800;
+template $LoginWindow : Box {
+    orientation: vertical;
+    halign: center;
+    valign: center;
 
     Box {
         orientation: vertical;
-        halign: center;
+        css-classes: ["login-panel"];
+        spacing: 12;
+        margin-top: 20;
+        margin-bottom: 20;
+        margin-start: 20;
+        margin-end: 20;
         valign: center;
+        halign: center;
 
-        Box {
-            orientation: vertical;
+        Image logo {
+            resource: "/com/samuelf09/passwdmngr/logo.png";
+            pixel-size: 128;
+        }
 
-            css-classes: ["login-panel"];
-            spacing: 12;
-            margin-top: 20;
-            margin-bottom: 20;
-            margin-start: 20;
-            margin-end: 20;
+        Entry uname_entry {
+            width-request: 300;
+            hexpand: false;
+            placeholder-text: _("Enter username...");
+        }
 
-            valign: center;
-            halign: center;
+        PasswordEntry passwd_entry {
+            width-request: 300;
+            hexpand: false;
+            show-peek-icon: true;
+            placeholder-text: _("Enter password...");
+        }
 
-            Image logo {
-                resource: "/com/samuelf09/passwdmngr/logo.png";
-                pixel-size: 128;
-            }
+        Button login_button {
+            label: _("Login");
+            clicked => $on_login_clicked();
+        }
 
-            Entry uname_entry {
-                width-request: 300;
-                hexpand: false;
-
-                placeholder-text: _("Enter username...");
-            }
-
-            PasswordEntry passwd_entry {
-                width-request: 300;
-                hexpand: false;
-
-                show-peek-icon: true;
-
-                placeholder-text: _("Enter password...");
-            }
-
-            Button login_button {
-                label: _("Login");
-                clicked => $on_login_clicked();
-            }
-
-            Button account_button {
-                label: _("Create new account");
-                clicked => $on_account_button_clicked();
-            }
+        Button account_button {
+            label: _("Create new account");
+            clicked => $on_account_button_clicked();
         }
     }
-    
 }

@@ -1,15 +1,18 @@
 #include <sys/stat.h>
 #include <sodium.h>
-#include "login_window.h"
+#include "ui/login_window.h"
 #include "storage.h"
 #include "util.h"
 #include "main.h"
 
 GtkApplication *passwdmngr = NULL;
-GtkWindow *current_window = NULL;
+GtkWindow *root_window = NULL;
 char *accounts_path = NULL;
 
 static void on_activate(GtkApplication *app) {
+
+    g_print("[passwdmngr/INFO]: Runtime gtk v%d.%d.%d\n", gtk_get_major_version(), gtk_get_minor_version(), gtk_get_micro_version());
+
     passwdmngr = app;
 
     GtkCssProvider *provider = gtk_css_provider_new();
@@ -21,13 +24,12 @@ static void on_activate(GtkApplication *app) {
         GTK_STYLE_PROVIDER_PRIORITY_APPLICATION
     );
 
-    LoginWindow *win = g_object_new(
-        LOGIN_WINDOW_TYPE,
-        "application", app,
-        NULL
-    );
+    GtkApplicationWindow *win = GTK_APPLICATION_WINDOW(gtk_application_window_new(app));
+    root_window = GTK_WINDOW(win);
+    gtk_window_set_default_size(root_window, 1200, 800);
 
-    current_window = GTK_WINDOW(win);
+    LoginWindow *login_win = g_object_new(LOGIN_WINDOW_TYPE, NULL);
+    gtk_window_set_child(GTK_WINDOW(root_window), GTK_WIDGET(login_win));
 
     if (sodium_init() < 0) {
         util_fatal("Failed to initialize libsodium");

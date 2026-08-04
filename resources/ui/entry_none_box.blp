@@ -1,0 +1,18 @@
+using Gtk 4.0;
+
+template $EntryNoneBox : Box {
+    orientation: vertical;
+    spacing: 12;
+    margin-top: 15;
+    margin-bottom: 15;
+    margin-start: 15;
+    margin-end: 15;
+
+    Label {
+        label: _("No entry selected");
+    }
+
+    Label {
+        label: _("Select an entry from the list on the left.");
+    }
+}

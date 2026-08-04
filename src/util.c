@@ -66,8 +66,9 @@ void util_error_dialog(GtkWindow *parent, const char *msg, enum ErrorType error_
 
     char *prefix = NULL;
 
-    if (error_type == NONFATAL) prefix = "[passwdmngr/ERROR]: ";
-    else                        prefix = "[passwdmngr/FATAL ERROR]: ";
+    if (error_type == WARN)          prefix = "[passwdmngr/WARNING]: ";
+    else if (error_type == NONFATAL) prefix = "[passwdmngr/ERROR]: ";
+    else                             prefix = "[passwdmngr/FATAL ERROR]: ";
 
     size_t msg_len = strlen(msg) + strlen(prefix) + 1;
     char *error_msg = malloc(msg_len);
@@ -89,11 +90,15 @@ void util_error_dialog(GtkWindow *parent, const char *msg, enum ErrorType error_
 }
 
 void util_fatal(const char *msg) {
-    util_error_dialog(current_window, msg, FATAL, passwdmngr);
+    util_error_dialog(root_window, msg, FATAL, passwdmngr);
 }
 
 void util_nonfatal(const char *msg) {
-    util_error_dialog(current_window, msg, NONFATAL, passwdmngr);
+    util_error_dialog(root_window, msg, NONFATAL, passwdmngr);
+}
+
+void util_warn(const char *msg) {
+    util_error_dialog(root_window, msg, WARN, passwdmngr);
 }
 
 bool util_check_ptr(void *ptr, const char *msg) {

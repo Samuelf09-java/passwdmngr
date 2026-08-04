@@ -8,12 +8,14 @@ extern const char PATH_SEPARATOR;
 #define REGISTER_CHILD(type, name) gtk_widget_class_bind_template_child(widget_class, type, name)
 
 #define X(x) (void)(x) // suppress 'unused parameter' compiler warnings with void cast
+#define UNIMPLEMENTED util_error("This function is currently unimplemented") // mark a function as unimplemented
 
 #define STORAGE_SCHEMA_VERSION 1
 
 enum ErrorType {
-    FATAL,
-    NONFATAL
+    WARN,
+    NONFATAL,
+    FATAL
 };
 
 char *util_get_app_dir();
@@ -25,4 +27,5 @@ void util_error(const char *msg);
 void util_error_dialog(GtkWindow *parent, const char *msg, enum ErrorType error_type, GtkApplication *app);
 void util_fatal(const char *msg);
 void util_nonfatal(const char *msg);
+void util_warn(const char *msg);
 bool util_check_ptr(void *ptr, const char *msg);

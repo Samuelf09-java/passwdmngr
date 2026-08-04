@@ -104,6 +104,7 @@ int aes_gcm_encrypt(
     uint8_t *ciphertext,
     uint8_t *tag)
 {
+    X(iv_len);
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     int len, ciphertext_len;
 
@@ -129,6 +130,7 @@ int aes_gcm_decrypt(
     uint8_t *tag,
     uint8_t *plaintext)
 {
+    X(iv_len);
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     int len, plaintext_len;
 

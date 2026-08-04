@@ -1,0 +1,55 @@
+using Gtk 4.0;
+
+template $EntryEditBox : Box {
+    orientation: vertical;
+    spacing: 12;
+    margin-top: 15;
+    margin-bottom: 15;
+    margin-start: 15;
+    margin-end: 15;
+
+    Label { label: _("Edit Entry"); }
+
+    Box {
+        orientation: horizontal;
+
+        Label { label: _("Service: "); }
+        Entry service_entry { hexpand: true; }
+    }
+
+    Box {
+        orientation: horizontal;
+
+        Label { label: _("Username: "); }
+        Entry username_entry { hexpand: true; }
+    }
+
+    Box {
+        orientation: horizontal;
+
+        Label { label: _("Password: "); }
+        Entry password_entry { hexpand: true; }
+    }
+
+    Box {
+        orientation: vertical;
+
+        Label { label: _("Notes: "); }
+        TextView notes_text { hexpand: true; vexpand: true;}
+    }
+
+    Box {
+        orientation: horizontal;
+        spacing: 12;
+
+        Button save_button {
+            label: "Save";
+            clicked => $on_save_clicked();
+        }
+
+        Button cancel_button {
+            label: "Cancel";
+            clicked => $on_cancel_clicked();
+        }
+    }
+}

@@ -1,8 +1,8 @@
-#include "account_creation_window.h"
+#include "ui/account_creation_window.h"
 #include "util.h"
 #include "main.h"
-#include "main_window.h"
-#include "login_window.h"
+#include "ui/main_window.h"
+#include "ui/login_window.h"
 #include "storage.h"
 
 struct _AccountCreationWindow {
@@ -14,11 +14,7 @@ struct _AccountCreationWindow {
     GtkWidget *confirm_passwd_entry;
 };
 
-G_DEFINE_FINAL_TYPE(AccountCreationWindow, account_creation_window, GTK_TYPE_APPLICATION_WINDOW)
-
-AccountCreationWindow *account_creation_window_new(GtkApplication *app) {
-    return g_object_new(ACCOUNT_CREATION_WINDOW_TYPE, "application", app, NULL);
-}
+G_DEFINE_FINAL_TYPE(AccountCreationWindow, account_creation_window, GTK_TYPE_BOX)
 
 static void on_create_account_clicked(GtkButton *button, AccountCreationWindow *self) {
     X(button);
@@ -37,10 +33,8 @@ static void on_create_account_clicked(GtkButton *button, AccountCreationWindow *
         bool res = create_new_account(uname, passwd);
         if (!res) util_nonfatal("Could not create account; check stderr for more information");
         else {
-            MainWindow *mainwin = main_window_new(passwdmngr);
-            current_window = GTK_WINDOW(mainwin);
-            gtk_window_present(GTK_WINDOW(mainwin));
-            gtk_window_destroy(GTK_WINDOW(self));
+            MainWindow *mainwin = g_object_new(MAIN_WINDOW_TYPE, NULL);
+            gtk_window_set_child(GTK_WINDOW(root_window), GTK_WIDGET(mainwin));
 
             util_info("New user login successful");
         }
@@ -51,10 +45,8 @@ static void on_create_account_clicked(GtkButton *button, AccountCreationWindow *
 
 static void on_cancel_clicked(GtkButton *button, AccountCreationWindow *self) {
     X(button);
-    LoginWindow *loginwin = login_window_new(passwdmngr);
-    current_window = GTK_WINDOW(loginwin);
-    gtk_window_present(GTK_WINDOW(loginwin));
-    gtk_window_destroy(GTK_WINDOW(self));
+    LoginWindow *loginwin = g_object_new(LOGIN_WINDOW_TYPE, NULL);
+    gtk_window_set_child(GTK_WINDOW(root_window), GTK_WIDGET(loginwin));
 }
 
 static void account_creation_window_class_init(AccountCreationWindowClass *klass) {
@@ -75,4 +67,6 @@ static void account_creation_window_class_init(AccountCreationWindowClass *klass
 
 static void account_creation_window_init(AccountCreationWindow *self) {
     gtk_widget_init_template(GTK_WIDGET(self));
+
+    gtk_window_set_title(GTK_WINDOW(root_window), "Password Manager - Create Account");
 }

@@ -22,6 +22,12 @@ int num_entries = -1;
 
 static char *storage_get_user_dir_with_hash(char *uname_hash);
 
+static int compare_entries_by_service(const void *a, const void *b) { // Sort alphabetically by service
+    const PasswdEntry *ea = a;
+    const PasswdEntry *eb = b;
+    return strcmp(ea->service, eb->service);
+}
+
 bool load_accounts() {
 
     JsonParser *parser = json_parser_new();
@@ -597,7 +603,31 @@ bool storage_write_user_vault(Metadata *md) {
     return true;
 }
 
-bool add_entry(PasswdEntry *entry, Metadata *md) {
+int storage_assign_new_id() {
+    int current_id = 0;
+    for (int i = 0; i < num_entries; i++) current_id = MAX(current_id, i[entries].id); // fun c tricks with arrays :)
+    return current_id + 1;
+}
+
+PasswdEntry *storage_get_entry(int id) {
+
+    for (int i = 0; i < num_entries; i++)
+        if (entries[i].id == id)
+            return &entries[i];
+    
+    util_error("Failed to find password entry from id: invalid id");
+    return NULL;
+}
+
+bool add_entry(PasswdEntry *entry) {
+
+    for (int i = 0; i < num_entries; i++)
+        if (!strcmp(entries[i].service, entry->service)) {
+            util_error("Duplicate service name");
+            return false;
+        }
+    
+    Metadata *md = storage_read_user_metadata();
 
     num_entries++;
 
@@ -605,6 +635,7 @@ bool add_entry(PasswdEntry *entry, Metadata *md) {
 
     if (!new_entries) {
         util_error("Failed to expand passwd entries array");
+        num_entries--;
         return false;
     }
 
@@ -616,14 +647,117 @@ bool add_entry(PasswdEntry *entry, Metadata *md) {
     entries[num_entries - 1].password = strdup(entry->password);
     entries[num_entries - 1].notes    = strdup(entry->notes);
 
+    qsort(entries, num_entries, sizeof(PasswdEntry), compare_entries_by_service); // sort entries
+
     if (!storage_write_user_vault(md)) {
-        util_error("Failed to write expanded entry list");
+        util_error("Failed to write expanded entry list; this session will not be saved properly");
         return false;
     }
+
+    md->last_modified = time(NULL);
+    md->num_entries = num_entries;
+
+    if (!storage_write_metadata(md)) {
+        util_error("Failed to update metadata.json; entry count will be inaccurate");
+        free(md);
+        return false;
+    }
+
+    free(md);
 
     return true;
 }
 
-bool delete_entry(PasswdEntry *entry) {
-    return false;
+bool delete_entry(int id) {
+
+    int index = -1;
+    for (int i = 0; i < num_entries; i++) {
+        if (entries[i].id == id) {
+            index = i;
+            break;
+        }
+    }
+
+    if (index < 0) {
+        util_error("Failed to delete entry: id not found");
+        return false;
+    }
+
+    free(entries[index].service);
+    free(entries[index].username);
+    free(entries[index].password);
+    free(entries[index].notes);
+
+    for (int j = index; j < num_entries - 1; j++) {
+        entries[j] = entries[j + 1];
+    }
+
+    Metadata *md = storage_read_user_metadata();
+
+    num_entries--;
+    PasswdEntry *new_entries = realloc(entries, sizeof(PasswdEntry) * num_entries);
+    if (!new_entries) {
+        util_error("realloc failed for new passwdentry array");
+        return false;
+    }
+
+    md->num_entries = num_entries;
+    md->last_modified = time(NULL);
+
+    if (!storage_write_metadata(md)) {
+        util_error("Failed to write new metadata.json");
+        free(md);
+        return false;
+    }
+    if (!storage_write_user_vault(md)) {
+        util_error("Failed to write updated user vault");
+        free(md);
+        return false;
+    }
+
+    free(md);
+
+    return true;
+}
+
+bool update_entry(int id, PasswdEntry *new_entry) {
+
+    int index = -1;
+    for (int i = 0; i < num_entries; i++) {
+        if (entries[i].id == id) {
+            index = i;
+            continue;
+        }
+        
+        if (!strcmp(entries[i].service, new_entry->service)) {
+            util_error("Duplicate service name");
+            return false;
+        }
+    }
+    
+    if (index < 0 ) {
+        util_error("Failed to update entry: id not found");
+        return false;
+    }
+    
+    entries[index].service = strdup(new_entry->service);
+    entries[index].username = strdup(new_entry->username);
+    entries[index].password = strdup(new_entry->password);
+    entries[index].notes = strdup(new_entry->notes);
+
+    qsort(entries, num_entries, sizeof(PasswdEntry), compare_entries_by_service);
+
+    Metadata *md = storage_read_user_metadata();
+    md->last_modified = time(NULL);
+    if (!storage_write_metadata(md)) {
+        util_error("Failed to write updated metadata.json");
+        return false;
+    }
+    
+    if (!storage_write_user_vault(md)) {
+        util_error("Failed to update user vault; edits will not be saved to disk");
+        return false;
+    }
+
+    return true;
 }

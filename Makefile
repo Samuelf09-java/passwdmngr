@@ -4,7 +4,7 @@ LDFLAGS = `pkg-config --libs gtk4 json-glib-1.0` -lsodium -lcrypto -lssl
 
 BLUEPRINT = blueprint-compiler
 
-SRC = $(wildcard src/*.c)
+SRC = $(shell find src -name '*.c')
 OBJ = $(patsubst src/%.c, build/%.o, $(SRC))
 
 BLP = $(wildcard resources/ui/*.blp)
@@ -19,10 +19,12 @@ build:
 
 # Compile c
 build/%.o: src/%.c | build
+	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # Compile blueprint
 resources/generated/%.ui: resources/ui/%.blp | build
+	mkdir -p resources/generated
 	$(BLUEPRINT) compile $< > $@
 
 # Compile gresources
@@ -39,4 +41,4 @@ $(TARGET): $(OBJ) build/resources.o
 	$(CC) $(OBJ) build/resources.o -o $(TARGET) $(LDFLAGS)
 
 clean:
-	rm -rf build $(TARGET) $(UI)
+	rm -rf build resources/generated $(TARGET)

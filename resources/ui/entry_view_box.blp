@@ -1,0 +1,53 @@
+using Gtk 4.0;
+
+template $EntryViewBox : Box {
+
+    orientation: vertical;
+
+    Box content_box {
+        orientation: vertical;
+        hexpand: true;
+        vexpand: true;
+        spacing: 12;
+        margin-top: 15;
+        margin-bottom: 15;
+        margin-start: 15;
+        margin-end: 15;
+
+        Label service_label { wrap: true; }
+        Label username_label { wrap: true; }
+        Label password_label { wrap: true; }
+        Label notes_title { label: _("Notes:"); }
+
+        Box notes_container {
+            orientation: vertical;
+            hexpand: false;
+
+            Label notes_label {
+                wrap: true;
+                wrap-mode: word_char;
+                xalign: 0;
+            }
+        }
+    }
+
+    Box floating_buttons {
+        halign: end;
+        valign: end;
+        spacing: 12;
+        margin-end: 16;
+        margin-bottom: 16;
+
+        Button edit_button {
+            css-classes: ["circular"];
+            Image { icon-name: "document-edit-symbolic"; }
+            clicked => $on_edit_clicked();
+        }
+
+        Button delete_button {
+            css-classes: ["circular"];
+            Image { icon-name: "user-trash-symbolic"; }
+            clicked => $on_delete_clicked();
+        }
+    }
+}
