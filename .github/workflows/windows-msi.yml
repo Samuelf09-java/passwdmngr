@@ -36,58 +36,17 @@ jobs:
           make clean
           make build-windows
 
-      - name: Prepare dist folder
+      - name: Auto-detect and copy dependencies
         shell: msys2 {0}
         run: |
           mkdir -p dist
           cp passwdmngr.exe dist/
-          cp /mingw64/bin/libgtk-4-1.dll dist/
-          cp /mingw64/bin/libgdk_pixbuf-2.0-0.dll dist/
-          cp /mingw64/bin/libgio-2.0-0.dll dist/
-          cp /mingw64/bin/libgobject-2.0-0.dll dist/
-          cp /mingw64/bin/libglib-2.0-0.dll dist/
-          cp /mingw64/bin/libgmodule-2.0-0.dll dist/
-          cp /mingw64/bin/libgthread-2.0-0.dll dist/
-          cp /mingw64/bin/libjson-glib-1.0-0.dll dist/
-          cp /mingw64/bin/libcairo-2.dll dist/
-          cp /mingw64/bin/libcairo-gobject-2.dll dist/
-          cp /mingw64/bin/libepoxy-0.dll dist/
-          cp /mingw64/bin/libgraphene-1.0-0.dll dist/
-          cp /mingw64/bin/libpixman-1-0.dll dist/
-          cp /mingw64/bin/libpango-1.0-0.dll dist/
-          cp /mingw64/bin/libpangocairo-1.0-0.dll dist/
-          cp /mingw64/bin/libpangoft2-1.0-0.dll dist/
-          cp /mingw64/bin/libpangowin32-1.0-0.dll dist/
-          cp /mingw64/bin/libharfbuzz-0.dll dist/
-          cp /mingw64/bin/libharfbuzz-gobject-0.dll dist/
-          cp /mingw64/bin/libfribidi-0.dll dist/
-          cp /mingw64/bin/libpng16-16.dll dist/
-          cp /mingw64/bin/libjpeg-8.dll dist/
-          cp /mingw64/bin/libtiff-6.dll dist/
-          cp /mingw64/bin/libwebp-7.dll dist/
-          cp /mingw64/bin/libwebpdecoder-3.dll dist/
-          cp /mingw64/bin/libwebpdemux-2.dll dist/
-          cp /mingw64/bin/libwebpmux-3.dll dist/
-          cp /mingw64/bin/libgif-7.dll dist/
-          cp /mingw64/bin/libLerc.dll dist/
-          cp /mingw64/bin/zlib1.dll dist/
-          cp /mingw64/bin/liblzma-5.dll dist/
-          cp /mingw64/bin/libcharset-1.dll dist/
-          cp /mingw64/bin/libiconv-2.dll dist/
-          cp /mingw64/bin/libsodium-26.dll dist/
-          cp /mingw64/bin/libcrypto-3-x64.dll dist/
-          cp /mingw64/bin/libssl-3-x64.dll dist/
-          cp /mingw64/bin/libffi-8.dll dist/
-          cp /mingw64/bin/libgcc_s_seh-1.dll dist/
-          cp /mingw64/bin/libstdc++-6.dll dist/
-          cp /mingw64/bin/libwinpthread-1.dll dist/
-          cp /mingw64/bin/libintl-8.dll dist/
-          cp /mingw64/bin/libpcre2-8-0.dll dist/
-          cp /mingw64/bin/libcairo-script-interpreter-2.dll dist/
-          cp /mingw64/bin/libfontconfig-1.dll dist/
-          cp /mingw64/bin/libgstallocators-1.0-0.dll dist/
-          cp /mingw64/bin/libgstgl-1.0-0.dll dist/
-          cp /mingw64/bin/libgstd3d12-1.0-0.dll dist/
+
+          ntldd -R passwdmngr.exe > deps.txt
+
+          cat deps.txt | grep "/mingw64/bin/" | awk '{print $3}' | while read dll; do
+            cp "$dll" dist/
+          done
 
       - name: Upload Windows build artifacts
         uses: actions/upload-artifact@v4
@@ -95,29 +54,29 @@ jobs:
           name: windows-build
           path: dist/
 
-  build-msi:
-    runs-on: windows-latest
-    needs: build-windows
+  # build-msi:
+  #   runs-on: windows-latest
+  #   needs: build-windows
 
-    steps:
-      - uses: actions/checkout@v4
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Download Windows build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: windows-build
-          path: dist/
+  #     - name: Download Windows build artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: windows-build
+  #         path: dist/
 
-      - name: Install WiX Toolset
-        run: choco install wixtoolset --yes
+  #     - name: Install WiX Toolset
+  #       run: choco install wixtoolset --yes
 
-      - name: Build MSI
-        run: |
-          candle.exe installer/installer.wxs -dAppDir=dist -o installer.wixobj
-          light.exe installer.wixobj -o passwdmngr.msi -ext WixUIExtension
+  #     - name: Build MSI
+  #       run: |
+  #         candle.exe installer/installer.wxs -dAppDir=dist -o installer.wixobj
+  #         light.exe installer.wixobj -o passwdmngr.msi -ext WixUIExtension
 
-      - name: Upload MSI
-        uses: actions/upload-artifact@v4
-        with:
-          name: passwdmngr-msi
-          path: passwdmngr.msi
+  #     - name: Upload MSI
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: passwdmngr-msi
+  #         path: passwdmngr.msi
