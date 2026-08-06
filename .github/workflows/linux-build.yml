@@ -23,8 +23,16 @@ jobs:
             libglib2.0-dev \
             libjson-glib-dev \
             libsodium-dev \
-            libssl-dev \
-            blueprint-compiler
+            libssl-dev
+
+      - name: Build latest Blueprint compiler
+        run: |
+          sudo apt install -y meson ninja-build
+          git clone https://gitlab.gnome.org/jwestman/blueprint-compiler.git
+          cd blueprint-compiler
+          meson setup build
+          ninja -C build
+          sudo ninja -C build install
 
       - name: Build app
         run: |
