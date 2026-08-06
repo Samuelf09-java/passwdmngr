@@ -23,7 +23,6 @@ jobs:
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-gtk4
             mingw-w64-x86_64-glib2
-            mingw-w64-x86_64-glib2-tools
             mingw-w64-x86_64-json-glib
             mingw-w64-x86_64-gettext
             mingw-w64-x86_64-libsodium
