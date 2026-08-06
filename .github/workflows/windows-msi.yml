@@ -1,0 +1,80 @@
+name: Build Windows MSI
+
+on:
+  workflow_dispatch:
+  # push:
+  #   branches: [ main ]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          msystem: MINGW64
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-gtk4
+            mingw-w64-x86_64-glib2
+            mingw-w64-x86_64-json-glib
+            mingw-w64-x86_64-gettext
+            mingw-w64-x86_64-libsodium
+            mingw-w64-x86_64-openssl
+
+      - name: Build Windows executable
+        shell: msys2 {0}
+        run: |
+          make clean
+          make build-windows
+
+      - name: List DLLs
+        shell: msys2 {0}
+        run: |
+          ls mingw64/bin/*.dll > dll-list.txt
+
+      - name: Upload DLL list
+        uses: actions/upload-artifact@v4
+        with:
+          name: dll-list
+          path: dll-list.txt
+
+      - name: Upload Windows build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: |
+            passwdmngr.exe
+            mingw64/bin/*.dll
+
+  # build-msi:
+  #   runs-on: windows-latest
+  #   needs: build-windows
+
+  #   steps:
+  #     - uses: actions/checkout@v4
+
+  #     - name: Download Windows build artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: windows-build
+  #         path: dist/
+
+  #     - name: Install WiX Toolset
+  #       run: choco install wixtoolset --yes
+
+  #     - name: Build MSI
+  #       run: |
+  #         candle.exe installer.wxs -o installer.wixobj
+  #         light.exe installer.wixobj -o passwdmngr.msi
+
+  #     - name: Upload MSI
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: passwdmngr-msi
+  #         path: passwdmngr.msi

@@ -167,7 +167,7 @@ bool create_new_account(char *uname, char *passwd) {
         util_error("Failed to build user dir structure");
         return false;
     }
-    mkdir(user_dir, 0755);
+    g_mkdir_with_parents(user_dir, 0755);
     
     char *meta_path = malloc(strlen(user_dir) + strlen("metadata.json") + 1);
     sprintf(meta_path, "%smetadata.json", user_dir);
@@ -728,7 +728,7 @@ bool update_entry(int id, PasswdEntry *new_entry) {
             index = i;
             continue;
         }
-        
+
         if (!strcmp(entries[i].service, new_entry->service)) {
             util_error("Duplicate service name");
             return false;

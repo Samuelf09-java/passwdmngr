@@ -4,12 +4,12 @@
       <attribute name="label">File</attribute>
       <section>
         <item>
-          <attribute name="label">New</attribute>
-          <attribute name="action">app.new</attribute>
+          <attribute name="label">Export</attribute>
+          <attribute name="action">app.export</attribute>
         </item>
         <item>
-          <attribute name="label">Quit</attribute>
-          <attribute name="action">app.quit</attribute>
+          <attribute name="label">Import</attribute>
+          <attribute name="action">app.import</attribute>
         </item>
       </section>
     </submenu>
@@ -23,5 +23,24 @@
         </item>
       </section>
     </submenu>
+
+    <submenu>
+      <attribute name="label">Account</attribute>
+      <section>
+        <item>
+          <attribute name="label">Logout</attribute>
+          <attribute name="action">app.logout</attribute>
+        </item>
+
+        <item>
+          <attribute name="label">Change password</attribute>
+          <attribute name="action">app.changepasswd</attribute>
+        </item>
+
+        <item>
+          <attribute name="label">Delete account</attribute>
+          <attribute name="action">app.deleteacc</attribute>
+        </item>
+      </section>
   </menu>
 </interface>

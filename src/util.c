@@ -50,8 +50,7 @@ char *util_get_app_dir() {
 }
 
 int dir_exists(const char *path) {
-    struct stat st;
-    return (stat(path, &st) == 0 && S_ISDIR(st.st_mode));
+    return g_file_test(path, G_FILE_TEST_IS_DIR);
 }
 
 void util_info(const char *msg) {

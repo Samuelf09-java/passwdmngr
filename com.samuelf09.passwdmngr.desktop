@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=PasswdMngr
+Comment=Secure password manager
+Exec=passwdmngr
+Icon=passwdmngr
+Terminal=false
+Categories=Utility;Security;

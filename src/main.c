@@ -43,21 +43,24 @@ static void on_activate(GtkApplication *app) {
         return;
     }
 
-    if (!dir_exists(root)) mkdir(root, 0755);
+    if (!dir_exists(root)) g_mkdir_with_parents(root, 0755);
 
     char *users_dir = malloc(strlen(root) + strlen("users") + 1);
     sprintf(users_dir, "%susers", root);
-    if (!dir_exists(users_dir)) mkdir(users_dir, 0755);
+    if (!dir_exists(users_dir)) g_mkdir_with_parents(users_dir, 0755);
 
     accounts_path = malloc(strlen(root) + strlen("accounts.json") + 1);
     sprintf(accounts_path, "%saccounts.json", root);
 
-    struct stat st;
-    bool file_missing = (stat(accounts_path, &st) != 0);
-    bool file_empty   = (!file_missing && st.st_size == 0);
+    gchar *contents = NULL;
+    gsize length = 0;
+
+    bool accounts_exists = g_file_get_contents(accounts_path, &contents, &length, NULL);
+
+    g_free(contents);
 
     // If accounts.json does not exist, write empty array
-    if (file_missing || file_empty) init_accounts_json(accounts_path);
+    if (!accounts_exists || length == 0) init_accounts_json(accounts_path);
 
     free(users_dir);
     free(root);
