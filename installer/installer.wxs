@@ -221,6 +221,18 @@
         <File Source="$(var.AppDir)\libwinpthread-1.dll" KeyPath="yes" />
       </Component>
 
+      <Component Id="cmp_libintl_8" Guid="f3a4b5c6-d7e8-49f1-9a52-112233445577" Directory="INSTALLFOLDER">
+        <File Source="$(var.AppDir)\libintl-8.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="cmp_libpcre2_8_0" Guid="a4b5c6d7-e8f9-4a1b-8c53-223344556688" Directory="INSTALLFOLDER">
+        <File Source="$(var.AppDir)\libpcre2-8-0.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="cmp_libcairo_script_interpreter_2" Guid="b5c6d7e8-f9a1-4b2c-9d54-334455667799" Directory="INSTALLFOLDER">
+        <File Source="$(var.AppDir)\libcairo-script-interpreter-2.dll" KeyPath="yes" />
+      </Component>
+
       <!-- Start Menu shortcut -->
       <Component Id="cmp_StartMenuShortcut" Guid="f2d3e4a5-c7b8-4d9e-9f51-223344556677" Directory="PasswdMngrProgramMenuDir">
         <Shortcut
