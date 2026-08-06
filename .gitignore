@@ -15,6 +15,7 @@ resources/generated/
 
 # Executables
 a.out
+*.exe
 
 # Debug files
 *.gdb
@@ -33,6 +34,3 @@ vgcore*
 # OS junk
 .DS_Store
 Thumbs.db
-
-# My cross-compiler setup (run through github actions for remote repo)
-mingw64/
