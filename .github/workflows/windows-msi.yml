@@ -19,6 +19,7 @@ jobs:
           update: true
           msystem: MINGW64
           install: >-
+            make
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-gtk4
             mingw-w64-x86_64-glib2

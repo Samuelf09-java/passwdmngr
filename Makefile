@@ -48,7 +48,7 @@ $(TARGET): $(OBJ) build/resources.o
 	$(CC) $(OBJ) build/resources.o -o $(TARGET) $(LDFLAGS)
 
 clean:
-	rm -rf build resources/generated $(TARGET)
+	rm -rf build resources/generated $(TARGET) $(TARGET).exe
 
 install:
 	@echo "Installing passwdmngr into $(PREFIX)..."
@@ -82,7 +82,10 @@ uninstall:
 
 	@echo "Uninstall complete."
 
-# WINDOWS BUILD
+# WINDOWS BUILD (cross-compiled)
+
+ifneq ($(OS),Windows_NT)
+ifeq ($(shell uname -s),Linux)
 
 WINCC = x86_64-w64-mingw32-gcc
 WIN_TARGET = passwdmngr.exe
@@ -93,19 +96,9 @@ WIN_CFLAGS = -Wall -Wextra -O2 \
 
 WIN_LDFLAGS = -lsodium -lcrypto -lssl
 
-WIN_PKG_CFLAGS = $(shell \
-    PKG_CONFIG_PATH=$(WIN_PREFIX)/lib/pkgconfig \
-    pkg-config --cflags gtk4 json-glib-1.0 \
-    | sed "s|/mingw64|$(WIN_PREFIX)|g" \
-    | sed "s|/usr|$(WIN_PREFIX)|g" \
-)
+WIN_PKG_CFLAGS = $(shell pkg-config --cflags gtk4 json-glib-1.0)
 
-WIN_PKG_LIBS = $(shell \
-    PKG_CONFIG_PATH=$(WIN_PREFIX)/lib/pkgconfig \
-    pkg-config --libs gtk4 json-glib-1.0 \
-    | sed "s|/mingw64|$(WIN_PREFIX)|g" \
-    | sed "s|/usr|$(WIN_PREFIX)|g" \
-)
+WIN_PKG_LIBS = $(shell pkg-config --libs gtk4 json-glib-1.0)
 
 WIN_PKG_LIBS := $(filter-out -lvulkan,$(WIN_PKG_LIBS))
 
@@ -115,3 +108,25 @@ build/resources-win.o: build/resources.c
 build-windows: build/resources.c build/resources-win.o
 	$(WINCC) $(WIN_CFLAGS) $(WIN_PKG_CFLAGS) $(SRC) build/resources-win.o -o $(WIN_TARGET) $(WIN_PKG_LIBS) $(WIN_LDFLAGS)
 	@echo "Built Windows executable: $(WIN_TARGET)"
+
+endif
+
+else
+
+WINCC = x86_64-w64-mingw32-gcc
+WIN_TARGET = passwdmngr.exe
+
+WIN_CFLAGS = -Wall -Wextra -O2 -I./include
+WIN_LDFLAGS = -lsodium -lcrypto -lssl
+
+WIN_PKG_CFLAGS = $(shell pkg-config --cflags gtk4 json-glib-1.0)
+WIN_PKG_LIBS = $(shell pkg-config --libs gtk4 json-glib-1.0)
+
+build/resources-win.o: build/resources.c
+	$(WINCC) $(WIN_CFLAGS) $(WIN_PKG_CFLAGS) -c build/resources.c -o build/resources-win.o
+
+build-windows: build/resources.c build/resources-win.o
+	$(WINCC) $(WIN_CFLAGS) $(WIN_PKG_CFLAGS) $(SRC) build/resources-win.o -o $(WIN_TARGET) $(WIN_PKG_LIBS) $(WIN_LDFLAGS)
+	@echo "Built Windows executable: $(WIN_TARGET)"
+
+endif
