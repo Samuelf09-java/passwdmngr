@@ -84,6 +84,10 @@ jobs:
           cp /mingw64/bin/libintl-8.dll dist/
           cp /mingw64/bin/libpcre2-8-0.dll dist/
           cp /mingw64/bin/libcairo-script-interpreter-2.dll dist/
+          cp /mingw64/bin/libfontconfig-1.dll dist/
+          cp /mingw64/bin/libgstallocators-1.0-0.dll dist/
+          cp /mingw64/bin/libgstgl-1.0-0.dll dist/
+          cp /mingw64/bin/libgstd3d12-1.0-0.dll dist/
 
       - name: Upload Windows build artifacts
         uses: actions/upload-artifact@v4

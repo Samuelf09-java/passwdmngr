@@ -233,6 +233,22 @@
         <File Source="$(var.AppDir)\libcairo-script-interpreter-2.dll" KeyPath="yes" />
       </Component>
 
+      <Component Id="cmp_libfontconfig_1" Guid="a7c8d9e1-f2b3-4c4d-9a61-112233445588" Directory="INSTALLFOLDER">
+        <File Source="$(var.AppDir)\libfontconfig-1.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="cmp_libgstallocators_1_0_0" Guid="b8d9e1f2-a3c4-4d5e-8b62-223344556699" Directory="INSTALLFOLDER">
+        <File Source="$(var.AppDir)\libgstallocators-1.0-0.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="cmp_libgstgl_1_0_0" Guid="c9e1f2a3-b4d5-4e6f-9c63-334455667700" Directory="INSTALLFOLDER">
+        <File Source="$(var.AppDir)\libgstgl-1.0-0.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="cmp_libgstd3d12_1_0_0" Guid="d1f2a3b4-c5e6-4f7a-8d64-445566778811" Directory="INSTALLFOLDER">
+        <File Source="$(var.AppDir)\libgstd3d12-1.0-0.dll" KeyPath="yes" />
+      </Component>
+
       <!-- Start Menu shortcut -->
       <Component Id="cmp_StartMenuShortcut" Guid="f2d3e4a5-c7b8-4d9e-9f51-223344556677" Directory="PasswdMngrProgramMenuDir">
         <Shortcut
