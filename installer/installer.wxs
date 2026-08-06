@@ -3,7 +3,7 @@
 
   <Product
     Id="*"
-    Name="PasswdMngr"
+    Name="Password Manager"
     Language="1033"
     Version="1.0.0.0"
     Manufacturer="Samuel Field"
@@ -14,16 +14,19 @@
 
     <MajorUpgrade
       AllowDowngrades="no"
-      DowngradeErrorMessage="A newer version of PasswdMngr is already installed." />
+      DowngradeErrorMessage="A newer version of Password Manager is already installed." />
 
     <Feature
       Id="MainFeature"
-      Title="PasswdMngr"
+      Title="Password Manager"
       Level="1"
       AllowAdvertise="no"
       ConfigurableDirectory="INSTALLFOLDER">
       <ComponentGroupRef Id="MainComponents" />
     </Feature>
+
+    <Icon Id="AppIcon" SourceFile="resources/icons/hicolor/128x128/apps/logo.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
 
     <UIRef Id="WixUI_InstallDir" />
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
@@ -35,12 +38,12 @@
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="ProgramFilesFolder">
         <Directory Id="ManufacturerDir" Name="Samuel">
-          <Directory Id="INSTALLFOLDER" Name="PasswdMngr" />
+          <Directory Id="INSTALLFOLDER" Name="passwdmngr" />
         </Directory>
       </Directory>
 
       <Directory Id="ProgramMenuFolder">
-        <Directory Id="PasswdMngrProgramMenuDir" Name="PasswdMngr" />
+        <Directory Id="PasswdMngrProgramMenuDir" Name="passwdmngr" />
       </Directory>
     </Directory>
   </Fragment>
@@ -253,14 +256,16 @@
       <Component Id="cmp_StartMenuShortcut" Guid="f2d3e4a5-c7b8-4d9e-9f51-223344556677" Directory="PasswdMngrProgramMenuDir">
         <Shortcut
           Id="PasswdMngrShortcut"
-          Name="PasswdMngr"
-          Description="PasswdMngr password manager"
+          Name="Password Manager"
+          Description="Password Manager"
           Target="[INSTALLFOLDER]passwdmngr.exe"
-          WorkingDirectory="INSTALLFOLDER" />
+          WorkingDirectory="INSTALLFOLDER"
+          Icon="AppIcon"
+          IconIndex="0" />
         <RemoveFolder Id="RemovePasswdMngrProgramMenuDir" On="uninstall" />
         <RegistryValue
           Root="HKCU"
-          Key="Software\Samuel\PasswdMngr"
+          Key="Software\Samuel\passwdmngr"
           Name="installed"
           Type="integer"
           Value="1"
