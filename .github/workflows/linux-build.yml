@@ -1,0 +1,38 @@
+name: Build Linux Executable
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            build-essential \
+            pkgconf \
+            libgtk-4-dev \
+            libglib2.0-dev \
+            libjson-glib-dev \
+            libsodium-dev \
+            libssl-dev \
+            blueprint-compiler
+
+      - name: Build app
+        run: |
+          make clean
+          make
+
+      - name: Upload passwdmngr binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: passwdmngr
