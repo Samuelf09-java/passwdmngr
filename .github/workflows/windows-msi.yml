@@ -13,13 +13,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install MSYS2
+      - name: Install tools
         uses: msys2/setup-msys2@v2
         with:
           update: true
           msystem: MINGW64
           install: >-
             make
+            pkgconf
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-gtk4
             mingw-w64-x86_64-glib2
