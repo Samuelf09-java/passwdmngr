@@ -39,7 +39,7 @@ jobs:
       - name: List DLLs
         shell: msys2 {0}
         run: |
-          ls mingw64/bin/*.dll > dll-list.txt
+          ls /mingw64/bin/*.dll > dll-list.txt
 
       - name: Upload DLL list
         uses: actions/upload-artifact@v4
