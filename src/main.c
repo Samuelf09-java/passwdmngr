@@ -60,13 +60,13 @@ static void on_activate(GtkApplication *app) {
     g_free(contents);
 
     // If accounts.json does not exist, write empty array
-    if (!accounts_exists || length == 0) init_accounts_json(accounts_path);
+    if (!accounts_exists || length == 0) init_accounts_json();
 
     free(users_dir);
     free(root);
 
     // Load accounts.json
-    if (!load_accounts(accounts_path)) {
+    if (!load_accounts()) {
         free(accounts_path);
         util_fatal("Failed to load account data from accounts.json; see stderr for more information");
     }
