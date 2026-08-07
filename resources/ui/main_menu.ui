@@ -42,5 +42,6 @@
           <attribute name="action">app.deleteacc</attribute>
         </item>
       </section>
+    </submenu>
   </menu>
 </interface>

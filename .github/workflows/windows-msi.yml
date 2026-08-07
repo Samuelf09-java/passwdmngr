@@ -57,7 +57,7 @@ jobs:
               else
                 echo "Warning: DLL not found: $winpath (POSIX: $posixpath)"
               fi
-            done
+            done || true
 
       - name: Upload Windows build artifacts
         uses: actions/upload-artifact@v4
