@@ -29,7 +29,7 @@ jobs:
             mingw-w64-x86_64-libsodium
             mingw-w64-x86_64-openssl
             mingw-w64-x86_64-blueprint-compiler
-            mingw-w64-x86_64-ntldd
+            mingw-w64-x86_64-ntldd-git
 
       - name: Build Windows executable
         shell: msys2 {0}
@@ -42,14 +42,14 @@ jobs:
         run: |
           $ntldd = "C:\msys64\mingw64\bin\ntldd.exe"
           $cygpath = "C:\msys64\usr\bin\cygpath.exe"
-      
+
           Write-Host "Checking ntldd.exe:"
           if (Test-Path $ntldd) {
               Write-Host "FOUND: $ntldd"
           } else {
               Write-Host "NOT FOUND: $ntldd"
           }
-      
+
           Write-Host "`nChecking cygpath.exe:"
           if (Test-Path $cygpath) {
               Write-Host "FOUND: $cygpath"
