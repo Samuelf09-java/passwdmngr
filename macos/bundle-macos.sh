@@ -69,30 +69,41 @@ for lib in $(otool -L "$BIN" | awk '{print $1}' | tail -n +2); do
     bundle_lib "$lib"
 done
 
+echo "Copying GTK runtime data..."
+
 GTK_PREFIX=$(brew --prefix gtk4)
 GLIB_PREFIX=$(brew --prefix glib)
-SODIUM_PREFIX=$(brew --prefix libsodium)
-OPENSSL_PREFIX=$(brew --prefix openssl)
+GDKPIXBUF_PREFIX=$(brew --prefix gdk-pixbuf)
 
-echo "Copying GTK runtime data..."
-cp -R "$GTK_PREFIX/share" "$SHARE/gtk4"
-cp -R "$GLIB_PREFIX/share/glib-2.0" "$SHARE/glib-2.0"
+# GTK4 share data (themes, CSS, etc.)
+if [[ -d "$GTK_PREFIX/share" ]]; then
+    cp -R "$GTK_PREFIX/share" "$SHARE/gtk4"
+fi
 
-echo "Copying GSettings schemas..."
-mkdir -p "$SHARE/glib-2.0/schemas"
-cp "$GLIB_PREFIX/share/glib-2.0/schemas/"* "$SHARE/glib-2.0/schemas/"
-glib-compile-schemas "$SHARE/glib-2.0/schemas"
+# GLib schemas (if any)
+if [[ -d "$GLIB_PREFIX/share/glib-2.0/schemas" ]]; then
+    mkdir -p "$SHARE/glib-2.0/schemas"
+    cp "$GLIB_PREFIX/share/glib-2.0/schemas/"* "$SHARE/glib-2.0/schemas/" || true
+    glib-compile-schemas "$SHARE/glib-2.0/schemas" || true
+fi
 
-echo "Copying GDK-Pixbuf loaders..."
-mkdir -p "$LIB/gdk-pixbuf-2.0/2.10.0/loaders"
-cp "$GTK_PREFIX/lib/gdk-pixbuf-2.0/2.10.0/loaders/"* "$LIB/gdk-pixbuf-2.0/2.10.0/loaders"
+# GDK-Pixbuf loaders (from gdk-pixbuf, not gtk4)
+if [[ -d "$GDKPIXBUF_PREFIX/lib/gdk-pixbuf-2.0/2.10.0/loaders" ]]; then
+    mkdir -p "$LIB/gdk-pixbuf-2.0/2.10.0/loaders"
+    cp "$GDKPIXBUF_PREFIX/lib/gdk-pixbuf-2.0/2.10.0/loaders/"* "$LIB/gdk-pixbuf-2.0/2.10.0/loaders" || true
+fi
 
-echo "Copying Pango modules..."
-mkdir -p "$LIB/pango"
-cp "$GTK_PREFIX/lib/pango/"* "$LIB/pango"
+# Pango modules (if present under gtk4)
+if [[ -d "$GTK_PREFIX/lib/pango" ]]; then
+    mkdir -p "$LIB/pango"
+    cp "$GTK_PREFIX/lib/pango/"* "$LIB/pango" || true
+fi
 
-echo "Copying icon themes..."
-mkdir -p "$SHARE/icons"
-cp -R "$GTK_PREFIX/share/icons" "$SHARE/icons"
+# Icon themes
+if [[ -d "$GTK_PREFIX/share/icons" ]]; then
+    mkdir -p "$SHARE/icons"
+    cp -R "$GTK_PREFIX/share/icons" "$SHARE/icons" || true
+fi
+
 
 echo "Bundling complete."
