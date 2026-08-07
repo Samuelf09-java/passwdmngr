@@ -32,8 +32,8 @@ jobs:
 
       - name: Bundle macOS app
         run: |
-          chmod +x scripts/bundle-macos.sh
-          scripts/bundle-macos.sh
+          chmod +x macos/bundle-macos.sh
+          macos/bundle-macos.sh
 
       - name: Create DMG
         run: |
