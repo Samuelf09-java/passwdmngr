@@ -256,7 +256,7 @@
 
   <!-- Start Menu shortcut -->
   <Fragment>     
-    <ComponentGroup>
+    <ComponentGroup Id="ShortcutComponents">
       <Component Id="cmp_StartMenuShortcut" Guid="f2d3e4a5-c7b8-4d9e-9f51-223344556677" Directory="PasswdMngrProgramMenuDir">
         <Shortcut
           Id="PasswdMngrShortcut"

@@ -42,7 +42,7 @@ jobs:
         shell: pwsh
         run: |
           $mingwBin = "C:\msys64\mingw64\bin"
-          Write-Host "Listing $mingwBin:"
+          Write-Host "Listing ${mingwBin}:"
           Get-ChildItem $mingwBin | Where-Object Name -like "libgtk-4-1*.dll","libglib-2.0-0*.dll","libgobject-2.0-0*.dll","libjson-glib-1.0-0*.dll","libsodium-26*.dll"
 
           $msysRoot = "C:\msys64"
