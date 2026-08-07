@@ -21,6 +21,8 @@ ICONDIR := $(SHAREDIR)/icons/hicolor/128x128/apps
 
 all: $(TARGET)
 
+# LINUX BUILD
+
 build:
 	mkdir -p build
 
@@ -113,6 +115,8 @@ endif
 
 else
 
+# WINDOWS BUILD
+
 WINCC = x86_64-w64-mingw32-gcc
 WIN_TARGET = passwdmngr.exe
 
@@ -128,5 +132,21 @@ build/resources-win.o: build/resources.c
 build-windows: build/resources.c build/resources-win.o
 	$(WINCC) $(WIN_CFLAGS) $(WIN_PKG_CFLAGS) $(SRC) build/resources-win.o -o $(WIN_TARGET) $(WIN_PKG_LIBS) $(WIN_LDFLAGS)
 	@echo "Built Windows executable: $(WIN_TARGET)"
+
+endif
+
+# MAC BUILD
+
+MACCC = clang
+MACFLAGS = $(shell pkg-config --cflags gtk4 json-glib-1.0 libsodium openssl)
+MACLIBS  = $(shell pkg-config --libs gtk4 json-glib-1.0 libsodium openssl)
+
+ifeq ($(shell uname -s),Darwin)
+
+build/resources-mac.o: build/resources.c
+	$(MACCC) $(MACFLAGS) -c build/resources.c -o build/resources-mac.o
+
+build-macos: build/resources-mac.o
+	$(MACCC) $(MACFLAGS) $(SRC) build/resources-mac.o -o passwdmngr $(MACLIBS)
 
 endif

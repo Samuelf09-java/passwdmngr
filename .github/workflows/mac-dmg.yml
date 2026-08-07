@@ -16,7 +16,7 @@ jobs:
       - name: Install Homebrew dependencies
         run: |
           brew update
-          brew install gtk4 json-glib libsodium openssl
+          brew install gtk4 json-glib libsodium openssl blueprint-compiler pkg-config
 
       - name: Build macOS executable
         run: |
