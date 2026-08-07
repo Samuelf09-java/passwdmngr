@@ -35,6 +35,8 @@ jobs:
         run: |
           make clean
           make build-windows
+          mkdir -p dist/
+          cp passwdmngr.exe dist/
 
       - name: Copy DLL dependencies
         shell: pwsh
@@ -47,7 +49,7 @@ jobs:
           Write-Host "Using cygpath: $cygpath"
 
           # Run ldd on the executable
-          $deps = & $ldd passwdmngr.exe
+          $deps = & $ldd dist/passwdmngr.exe
           Write-Host "ldd output: $deps"
 
           # Extract DLL paths
@@ -93,7 +95,7 @@ jobs:
           <?xml version="1.0" encoding="UTF-8"?>
           <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
             <Fragment>
-              <DirectoryRef Id="INSTALLDIR">
+              <DirectoryRef Id="INSTALLFOLDER">
           "@
 
           function New-StableGuid($name) {
@@ -130,7 +132,7 @@ jobs:
       - name: Build MSI
         run: |
           candle.exe installer/installer.wxs dist-components.wxs -dAppDir=dist
-          light.exe installer.wixobj dist-components.wixobj -o passwdmngr.msi -ext WixUIExtension
+          light.exe installer.wixobj dist-components.wixobj -ext WixUIExtension -o passwdmngr.msi
 
       - name: Upload MSI
         uses: actions/upload-artifact@v4
