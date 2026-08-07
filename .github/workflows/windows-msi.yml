@@ -40,14 +40,23 @@ jobs:
       - name: Copy DLL dependencies
         shell: pwsh
         run: |
-          $deps = & "C:\msys64\mingw64\bin\ntldd.exe" -R passwdmngr.exe
+          $msysRoot = (Get-ChildItem "D:\a\_temp\setup-msys2" -Directory | Select-Object -First 1).FullName + "\msys2"
+
+          $ntldd = Join-Path $msysRoot "mingw64\bin\ntldd.exe"
+          $cygpath = Join-Path $msysRoot "usr\bin\cygpath.exe"
+
+          Write-Host "MSYS2 root: $msysRoot"
+          Write-Host "ntldd path: $ntldd"
+          Write-Host "cygpath path: $cygpath"
+
+          $deps = & $ntldd -R passwdmngr.exe
 
           $dlls = $deps | Select-String "mingw64\\bin" | ForEach-Object {
               ($_ -split "=>")[1].Trim() -replace "\s*\(.*",""
           }
 
           foreach ($dll in $dlls) {
-              $posix = & "C:\msys64\usr\bin\cygpath.exe" $dll
+              $posix = & $cygpath $dll
               if (Test-Path $posix) {
                   Copy-Item $posix dist/
               } else {
@@ -61,29 +70,70 @@ jobs:
           name: windows-build
           path: dist/
 
-  # build-msi:
-  #   runs-on: windows-latest
-  #   needs: build-windows
+  build-msi:
+    runs-on: windows-latest
+    needs: build-windows
 
-  #   steps:
-  #     - uses: actions/checkout@v4
+    steps:
+      - uses: actions/checkout@v4
 
-  #     - name: Download Windows build artifacts
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: windows-build
-  #         path: dist/
+      - name: Download Windows build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-build
+          path: dist/
 
-  #     - name: Install WiX Toolset
-  #       run: choco install wixtoolset --yes
+      - name: Generate WiX components
+        shell: pwsh
+        run: |
+          $dist = "dist"
+          $out = "dist-components.wxs"
 
-  #     - name: Build MSI
-  #       run: |
-  #         candle.exe installer/installer.wxs -dAppDir=dist -o installer.wixobj
-  #         light.exe installer.wixobj -o passwdmngr.msi -ext WixUIExtension
+          $xml = @"
+          <?xml version="1.0" encoding="UTF-8"?>
+          <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+            <Fragment>
+              <DirectoryRef Id="INSTALLDIR">
+          "@
 
-  #     - name: Upload MSI
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: passwdmngr-msi
-  #         path: passwdmngr.msi
+          function New-StableGuid($name) {
+              $bytes = [System.Text.Encoding]::UTF8.GetBytes($name)
+              $hash = (New-Object System.Security.Cryptography.SHA1Managed).ComputeHash($bytes)
+              $guid = New-Guid
+              $guidBytes = $guid.ToByteArray()
+              [Array]::Copy($hash, $guidBytes, 16)
+              return (New-Object Guid($guidBytes)).ToString()
+          }
+
+          Get-ChildItem $dist | ForEach-Object {
+              $file = $_.Name
+              $id = "File_" + ($file -replace '[^A-Za-z0-9_]', '_')
+              $guid = New-StableGuid($file)
+
+              $xml += @"
+            <Component Id="$id" Guid="$guid">
+              <File Id="${id}_File" Source="$dist\$file" />
+            </Component>
+          "@
+          }
+
+          $xml += @"
+            </Fragment>
+          </Wix>
+          "@
+
+          Set-Content -Path $out -Value $xml
+
+      - name: Install WiX Toolset
+        run: choco install wixtoolset --yes
+
+      - name: Build MSI
+        run: |
+          candle.exe installer/installer.wxs dist-components.wxs -dAppDir=dist
+          light.exe installer.wixobj dist-components.wixobj -o passwdmngr.msi -ext WixUIExtension
+
+      - name: Upload MSI
+        uses: actions/upload-artifact@v4
+        with:
+          name: passwdmngr-msi
+          path: passwdmngr.msi
