@@ -32,7 +32,9 @@ jobs:
 
       - name: Bundle macOS app
         run: |
-          pip3 install gtk-mac-bundler
+          brew install pipx
+          pipx ensurepath
+          pipx install gtk-mac-bundler
           gtk-mac-bundler passwdmngr.bundle
 
       - name: Create DMG
