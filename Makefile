@@ -147,6 +147,6 @@ build/resources-mac.o: build/resources.c
 	$(MACCC) $(MACFLAGS) -c build/resources.c -o build/resources-mac.o
 
 build-macos: build/resources-mac.o
-	$(MACCC) $(MACFLAGS) $(SRC) build/resources-mac.o -o passwdmngr $(MACLIBS)
+	$(MACCC) -I./include $(MACFLAGS) $(SRC) build/resources-mac.o -o passwdmngr $(MACLIBS)
 
 endif
