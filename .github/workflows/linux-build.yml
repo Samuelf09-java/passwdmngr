@@ -25,16 +25,23 @@ jobs:
             libsodium-dev \
             libssl-dev
 
-      - name: Install Blueprint compiler
+      - name: Install Flatpak Blueprint compiler
         run: |
           sudo apt update
-          sudo apt install -y meson ninja-build python3 python3-pip
-          git clone https://gitlab.gnome.org/jwestman/blueprint-compiler.git
-          cd blueprint-compiler
-          meson setup build
-          ninja -C build
-          sudo ninja -C build install
-          export PYTHONPATH=/usr/local/lib/python3/dist-packages:$PYTHONPATH
+          sudo apt install -y flatpak
+          flatpak install -y --noninteractive \
+            https://dl.flathub.org/repo/appstream/org.gtk.BlueprintCompiler.flatpakref
+
+          # Create wrapper so Makefile doesn't need changes
+          sudo mkdir -p /usr/local/bin/flatpak-blueprint-wrapper
+          sudo tee /usr/local/bin/flatpak-blueprint-wrapper/blueprint-compiler > /dev/null << 'EOF'
+          #!/usr/bin/env bash
+          flatpak run org.gtk.BlueprintCompiler "$@"
+          EOF
+          sudo chmod +x /usr/local/bin/flatpak-blueprint-wrapper/blueprint-compiler
+
+          # Prepend wrapper directory to PATH
+          export PATH="/usr/local/bin/flatpak-blueprint-wrapper:$PATH"
 
       - name: Build app
         run: |
