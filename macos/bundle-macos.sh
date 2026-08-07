@@ -71,14 +71,12 @@ done
 
 GTK_PREFIX=$(brew --prefix gtk4)
 GLIB_PREFIX=$(brew --prefix glib)
-JSON_PREFIX=$(brew --prefix json-glib)
 SODIUM_PREFIX=$(brew --prefix libsodium)
 OPENSSL_PREFIX=$(brew --prefix openssl)
 
 echo "Copying GTK runtime data..."
 cp -R "$GTK_PREFIX/share" "$SHARE/gtk4"
 cp -R "$GLIB_PREFIX/share/glib-2.0" "$SHARE/glib-2.0"
-cp -R "$JSON_PREFIX/share/json-glib-1.0" "$SHARE/json-glib-1.0"
 
 echo "Copying GSettings schemas..."
 mkdir -p "$SHARE/glib-2.0/schemas"
