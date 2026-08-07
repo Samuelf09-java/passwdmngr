@@ -44,16 +44,16 @@ jobs:
           $msysRoot = "C:\msys64"
           $ldd = "$msysRoot\usr\bin\ldd.exe"
           $cygpath = "$msysRoot\usr\bin\cygpath.exe"
+          $mingwBin = "$msysRoot\mingw64\bin"
+          $env:PATH = "$mingwBin;$env:PATH"
 
           Write-Host "Using ldd: $ldd"
           Write-Host "Using cygpath: $cygpath"
 
-          # Run ldd on the executable
           $deps = & $ldd dist/passwdmngr.exe
           Write-Host "ldd output: $deps"
 
-          # Extract DLL paths
-          $dlls = $deps | Select-String "=>.*mingw64" | ForEach-Object {
+          $dlls = $deps | Select-String "=>" | ForEach-Object {
               ($_ -split "=>")[1].Trim() -replace "\s*\(.*",""
           }
 
@@ -101,10 +101,10 @@ jobs:
           function New-StableGuid($name) {
               $bytes = [System.Text.Encoding]::UTF8.GetBytes($name)
               $hash = (New-Object System.Security.Cryptography.SHA1Managed).ComputeHash($bytes)
-              $guid = New-Guid
-              $guidBytes = $guid.ToByteArray()
-              [Array]::Copy($hash, $guidBytes, 16)
-              return (New-Object Guid($guidBytes)).ToString()
+              $guid = [Guid]::New(
+                  [BitConverter]::ToString($hash[0..15]).Replace("-", "")
+              )
+              return $guid.ToString()
           }
 
           Get-ChildItem $dist | ForEach-Object {
