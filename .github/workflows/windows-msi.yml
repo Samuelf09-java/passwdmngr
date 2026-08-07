@@ -48,6 +48,7 @@ jobs:
 
           # Run ldd on the executable
           $deps = & $ldd passwdmngr.exe
+          Write-Host "ldd output: $deps"
 
           # Extract DLL paths
           $dlls = $deps | Select-String "=>.*mingw64" | ForEach-Object {
