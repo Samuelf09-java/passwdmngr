@@ -13,7 +13,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install GTK4 and build tools
         run: |
           sudo apt update
           sudo apt install -y \
@@ -23,31 +23,35 @@ jobs:
             libglib2.0-dev \
             libjson-glib-dev \
             libsodium-dev \
-            libssl-dev
+            libssl-dev \
+            python3 python3-pip \
+            meson ninja-build
 
-      - name: Install Flatpak Blueprint compiler
+      - name: Build and install Blueprint compiler
         run: |
-          sudo apt update
-          sudo apt install -y flatpak
+          git clone https://gitlab.gnome.org/jwestman/blueprint-compiler.git
+          cd blueprint-compiler
+          meson setup build
+          ninja -C build
+          sudo ninja -C build install
 
-          sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-          sudo flatpak install -y flathub org.gtk.BlueprintCompiler
-
-          sudo mkdir -p /usr/local/bin/flatpak-blueprint-wrapper
-          sudo tee /usr/local/bin/flatpak-blueprint-wrapper/blueprint-compiler > /dev/null << 'EOF'
+      - name: Create wrapper for blueprint-compiler
+        run: |
+          sudo mkdir -p /usr/local/bin/blueprint-wrapper
+          sudo tee /usr/local/bin/blueprint-wrapper/blueprint-compiler > /dev/null << 'EOF'
           #!/usr/bin/env bash
-          flatpak run org.gtk.BlueprintCompiler "$@"
+          export PYTHONPATH=/usr/local/lib/python3/dist-packages:$PYTHONPATH
+          exec /usr/local/bin/blueprint-compiler "$@"
           EOF
-          sudo chmod +x /usr/local/bin/flatpak-blueprint-wrapper/blueprint-compiler
+          sudo chmod +x /usr/local/bin/blueprint-wrapper/blueprint-compiler
 
-          export PATH="/usr/local/bin/flatpak-blueprint-wrapper:$PATH"
-
-      - name: Build app
+      - name: Build Linux executable
         run: |
+          export PATH="/usr/local/bin/blueprint-wrapper:$PATH"
           make clean
           make
 
-      - name: Upload passwdmngr binary
+      - name: Upload Linux build artifact
         uses: actions/upload-artifact@v4
         with:
           name: linux-build
