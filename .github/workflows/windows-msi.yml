@@ -29,7 +29,7 @@ jobs:
             mingw-w64-x86_64-libsodium
             mingw-w64-x86_64-openssl
             mingw-w64-x86_64-blueprint-compiler
-            mingw-w64-x86_64-ntldd-git
+            ucrt64-ntldd
 
       - name: Build Windows executable
         shell: msys2 {0}
@@ -37,36 +37,15 @@ jobs:
           make clean
           make build-windows
 
-      - name: Check ntldd and cygpath directly
-        shell: pwsh
-        run: |
-          $ntldd = "C:\msys64\mingw64\bin\ntldd.exe"
-          $cygpath = "C:\msys64\usr\bin\cygpath.exe"
-
-          Write-Host "Checking ntldd.exe:"
-          if (Test-Path $ntldd) {
-              Write-Host "FOUND: $ntldd"
-          } else {
-              Write-Host "NOT FOUND: $ntldd"
-          }
-
-          Write-Host "`nChecking cygpath.exe:"
-          if (Test-Path $cygpath) {
-              Write-Host "FOUND: $cygpath"
-          } else {
-              Write-Host "NOT FOUND: $cygpath"
-          }
-
       - name: Copy DLL dependencies
         shell: pwsh
         run: |
           $msysRoot = "C:\msys64"
-          $ntldd = Join-Path $msysRoot "mingw64\bin\ntldd.exe"
-          $cygpath = Join-Path $msysRoot "usr\bin\cygpath.exe"
+          $ntldd = "$msysRoot\ucrt64\bin\ntldd.exe"
+          $cygpath = "$msysRoot\usr\bin\cygpath.exe"
 
-          Write-Host "MSYS2 root: $msysRoot"
-          Write-Host "ntldd path: $ntldd"
-          Write-Host "cygpath path: $cygpath"
+          Write-Host "Using ntldd: $ntldd"
+          Write-Host "Using cygpath: $cygpath"
 
           $deps = & $ntldd -R passwdmngr.exe
 
