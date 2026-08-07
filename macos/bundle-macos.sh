@@ -21,13 +21,28 @@ bundle_lib() {
         return
     fi
 
+    # Resolve @rpath libraries
+    if [[ "$lib" == @rpath/* ]]; then
+        local base=$(basename "$lib")
+
+        # Search Homebrew for the real file
+        local real=$(find /opt/homebrew -name "$base" 2>/dev/null | head -n 1)
+
+        if [[ -z "$real" ]]; then
+            echo "WARNING: Could not resolve $lib"
+            return
+        fi
+
+        echo "Resolved $lib → $real"
+        lib="$real"
+    fi
+
     local base=$(basename "$lib")
     local dest="$LIB/$base"
 
     if [[ ! -f "$dest" ]]; then
         echo "Copying $lib → $dest"
         cp "$lib" "$dest"
-
         chmod 755 "$dest"
 
         # Fix install name
