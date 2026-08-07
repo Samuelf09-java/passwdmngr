@@ -29,12 +29,12 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y meson ninja-build python3 python3-pip
-          export PYTHON=python3.10
           git clone https://gitlab.gnome.org/jwestman/blueprint-compiler.git
           cd blueprint-compiler
           meson setup build
           ninja -C build
           sudo ninja -C build install
+          export PYTHONPATH=/usr/local/lib/python3/dist-packages:$PYTHONPATH
 
       - name: Build app
         run: |
