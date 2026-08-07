@@ -29,7 +29,6 @@ jobs:
             mingw-w64-x86_64-libsodium
             mingw-w64-x86_64-openssl
             mingw-w64-x86_64-blueprint-compiler
-            ucrt64-ntldd
 
       - name: Build Windows executable
         shell: msys2 {0}
