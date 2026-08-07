@@ -42,16 +42,20 @@ jobs:
         run: |
           mkdir -p dist
           cp passwdmngr.exe dist/
-
+      
           /mingw64/bin/ntldd.exe -R passwdmngr.exe > deps.txt
+      
+          grep -E "mingw64[/\\]bin" deps.txt \
+            | sed -E 's/.*=>[[:space:]]*//' \
+            | sed -E 's/[[:space:]]*\(.*//' \
+            | while read dll; do
+                if [ -f "$dll" ]; then
+                  cp "$dll" dist/
+                else
+                  echo "Warning: DLL not found: $dll"
+                fi
+              done
 
-          grep -E "mingw64[/\\]bin" deps.txt | awk '{print $3}' | while read dll; do
-            if [ -f "$dll" ]; then
-              cp "$dll" dist/
-            else
-              echo "Warning: DLL not found: $dll"
-            fi
-          done
 
       - name: Upload Windows build artifacts
         uses: actions/upload-artifact@v4

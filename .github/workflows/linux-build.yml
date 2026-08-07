@@ -25,9 +25,10 @@ jobs:
             libsodium-dev \
             libssl-dev
 
-      - name: Build latest Blueprint compiler
+      - name: Install Blueprint compiler
         run: |
-          sudo apt install -y meson ninja-build
+          sudo apt update
+          sudo apt install -y meson ninja-build python3 python3-pip
           git clone https://gitlab.gnome.org/jwestman/blueprint-compiler.git
           cd blueprint-compiler
           meson setup build
