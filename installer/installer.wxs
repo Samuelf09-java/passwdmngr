@@ -22,7 +22,7 @@
       Level="1"
       AllowAdvertise="no"
       ConfigurableDirectory="INSTALLFOLDER">
-      <ComponentGroupRef Id="MainComponents" />
+      <ComponentGroupRef Id="AppComponents" />
       <ComponentGroupRef Id="ShortcutComponents" />
     </Feature>
 
