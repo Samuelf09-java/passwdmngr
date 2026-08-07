@@ -41,15 +41,17 @@ jobs:
         shell: pwsh
         run: |
           $msysRoot = "C:\msys64"
-          $ntldd = "$msysRoot\ucrt64\bin\ntldd.exe"
+          $ldd = "$msysRoot\usr\bin\ldd.exe"
           $cygpath = "$msysRoot\usr\bin\cygpath.exe"
 
-          Write-Host "Using ntldd: $ntldd"
+          Write-Host "Using ldd: $ldd"
           Write-Host "Using cygpath: $cygpath"
 
-          $deps = & $ntldd -R passwdmngr.exe
+          # Run ldd on the executable
+          $deps = & $ldd passwdmngr.exe
 
-          $dlls = $deps | Select-String "mingw64\\bin" | ForEach-Object {
+          # Extract DLL paths
+          $dlls = $deps | Select-String "=>.*mingw64" | ForEach-Object {
               ($_ -split "=>")[1].Trim() -replace "\s*\(.*",""
           }
 
