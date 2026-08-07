@@ -37,6 +37,22 @@ jobs:
           make clean
           make build-windows
 
+      - name: Debug MSYS2 installation paths
+        shell: pwsh
+        run: |
+          Write-Host "=== Searching for MSYS2 directories ==="
+          Get-ChildItem -Path C:\ -Recurse -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -like "*msys*" } |
+            Select-Object FullName
+
+          Write-Host "`n=== Searching for ntldd.exe ==="
+          Get-ChildItem -Path C:\ -Recurse -Filter "ntldd.exe" -ErrorAction SilentlyContinue |
+            Select-Object FullName
+
+          Write-Host "`n=== Searching for cygpath.exe ==="
+          Get-ChildItem -Path C:\ -Recurse -Filter "cygpath.exe" -ErrorAction SilentlyContinue |
+            Select-Object FullName
+
       - name: Copy DLL dependencies
         shell: pwsh
         run: |
