@@ -40,8 +40,7 @@ jobs:
       - name: Copy DLL dependencies
         shell: pwsh
         run: |
-          $msysRoot = (Get-ChildItem "D:\a\_temp\setup-msys2" -Directory | Select-Object -First 1).FullName + "\msys2"
-
+          $msysRoot = "C:\msys64"
           $ntldd = Join-Path $msysRoot "mingw64\bin\ntldd.exe"
           $cygpath = Join-Path $msysRoot "usr\bin\cygpath.exe"
 
