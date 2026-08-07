@@ -37,27 +37,23 @@ jobs:
           make clean
           make build-windows
 
-      - name: Auto-detect and copy dependencies
-        shell: msys2 {0}
+      - name: Copy DLL dependencies
+        shell: pwsh
         run: |
-          mkdir -p dist
-          cp passwdmngr.exe dist/
+          $deps = & "C:\msys64\mingw64\bin\ntldd.exe" -R passwdmngr.exe
 
-          /mingw64/bin/ntldd.exe -R passwdmngr.exe > deps.txt
+          $dlls = $deps | Select-String "mingw64\\bin" | ForEach-Object {
+              ($_ -split "=>")[1].Trim() -replace "\s*\(.*",""
+          }
 
-          cat deps.txt \
-          | sed 's/\\/\\\\/g' \
-          | grep -E "mingw64[/\\]bin" \
-          | sed -E 's/.*=>[[:space:]]*//' \
-          | sed -E 's/[[:space:]]*\(.*//' \
-          | while read winpath; do
-              posixpath=$(cygpath "$winpath")
-              if [ -f "$posixpath" ]; then
-                cp "$posixpath" dist/
-              else
-                echo "Warning: DLL not found: $winpath (POSIX: $posixpath)"
-              fi
-            done || true
+          foreach ($dll in $dlls) {
+              $posix = & "C:\msys64\usr\bin\cygpath.exe" $dll
+              if (Test-Path $posix) {
+                  Copy-Item $posix dist/
+              } else {
+                  Write-Host "Warning: DLL not found: $dll (POSIX: $posix)"
+              }
+          }
 
       - name: Upload Windows build artifacts
         uses: actions/upload-artifact@v4
