@@ -23,43 +23,17 @@ jobs:
           make clean
           make build-macos
 
-      - name: Create .app bundle
+      - name: Create .app skeleton
         run: |
           mkdir -p dist/PasswordManager.app/Contents/MacOS
           mkdir -p dist/PasswordManager.app/Contents/Resources
-
           cp passwdmngr dist/PasswordManager.app/Contents/MacOS/
           cp resources/icons/hicolor/128x128/apps/logo.icns dist/PasswordManager.app/Contents/Resources/
 
-          cat > dist/PasswordManager.app/Contents/Info.plist <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-           "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>CFBundleName</key>
-            <string>Password Manager</string>
-            <key>CFBundleExecutable</key>
-            <string>passwdmngr</string>
-            <key>CFBundleIdentifier</key>
-            <string>com.samuelf09.passwdmngr</string>
-            <key>CFBundleVersion</key>
-            <string>1.0</string>
-            <key>CFBundlePackageType</key>
-            <string>APPL</string>
-            <key>CFBundleIconFile</key>
-            <string>logo.icns</string>
-            <key>CFBundleIconName</key>
-            <string>Password Manager</string>
-          </dict>
-          </plist>
-          EOF
-
-      - name: Bundle GTK runtime
+      - name: Bundle macOS app
         run: |
-          GTK_PREFIX=$(brew --prefix gtk4)
-          cp -R $GTK_PREFIX/lib dist/PasswordManager.app/Contents/Resources/
-          cp -R $GTK_PREFIX/share dist/PasswordManager.app/Contents/Resources/
+          pip3 install gtk-mac-bundler
+          gtk-mac-bundler passwdmngr.bundle
 
       - name: Create DMG
         run: |

@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<app-bundle>
+  <app name="Password Manager"
+       executable="passwdmngr"
+       icon="logo.icns"
+       identifier="com.samuelf09.passwdmngr"
+       version="1.0"/>
+
+  <paths>
+    <binary>dist/PasswordManager.app/Contents/MacOS</binary>
+    <resources>dist/PasswordManager.app/Contents/Resources</resources>
+  </paths>
+
+  <dependencies>
+    <dependency>gtk4</dependency>
+    <dependency>glib</dependency>
+    <dependency>json-glib</dependency>
+    <dependency>libsodium</dependency>
+    <dependency>openssl</dependency>
+  </dependencies>
+</app-bundle>
