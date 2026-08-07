@@ -37,21 +37,47 @@ jobs:
           make clean
           make build-windows
 
-      - name: Debug MSYS2 installation paths
+      - name: Debug MSYS2 installation
         shell: pwsh
         run: |
-          Write-Host "=== Searching for MSYS2 directories ==="
-          Get-ChildItem -Path C:\ -Recurse -Directory -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -like "*msys*" } |
-            Select-Object FullName
-
+          Write-Host "=== Checking MSYS2 standard install path ==="
+          if (Test-Path "C:\msys64") {
+              Write-Host "Found MSYS2 at C:\msys64"
+              Get-ChildItem "C:\msys64" -Depth 2
+          } else {
+              Write-Host "MSYS2 not found at C:\msys64"
+          }
+      
+          Write-Host "`n=== Checking MSYS2 setup-msys2 temp path ==="
+          $tempRoot = "D:\a\_temp"
+          if (Test-Path $tempRoot) {
+              Get-ChildItem $tempRoot -Directory | ForEach-Object {
+                  $msysCandidate = Join-Path $_.FullName "msys2"
+                  if (Test-Path $msysCandidate) {
+                      Write-Host "Found MSYS2 at $msysCandidate"
+                      Get-ChildItem $msysCandidate -Depth 2
+                  }
+              }
+          } else {
+              Write-Host "Temp root not found."
+          }
+      
           Write-Host "`n=== Searching for ntldd.exe ==="
-          Get-ChildItem -Path C:\ -Recurse -Filter "ntldd.exe" -ErrorAction SilentlyContinue |
-            Select-Object FullName
-
+          $ntldd = Get-ChildItem -Path "C:\" -Recurse -Filter "ntldd.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($ntldd) {
+              Write-Host "Found ntldd.exe at: $($ntldd.FullName)"
+          } else {
+              Write-Host "ntldd.exe not found."
+          }
+      
           Write-Host "`n=== Searching for cygpath.exe ==="
-          Get-ChildItem -Path C:\ -Recurse -Filter "cygpath.exe" -ErrorAction SilentlyContinue |
-            Select-Object FullName
+          $cygpath = Get-ChildItem -Path "C:\" -Recurse -Filter "cygpath.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($cygpath) {
+              Write-Host "Found cygpath.exe at: $($cygpath.FullName)"
+          } else {
+              Write-Host "cygpath.exe not found."
+          }
+
 
       - name: Copy DLL dependencies
         shell: pwsh
