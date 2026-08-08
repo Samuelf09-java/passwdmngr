@@ -17,11 +17,14 @@ template $MainWindow : Box {
             Box {
                 orientation: vertical;
 
+                css-classes: ["gray-bg"];
+
                 spacing: 5;
                 margin-top: 5;
 
                 Label {
                     label: _("Select service");
+                    css-classes: ["service-select"];
                 }
 
                 ListBox entries_listbox {

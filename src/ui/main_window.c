@@ -220,8 +220,7 @@ static void on_entry_selected(GtkListBox *box, GtkListBoxRow *row, MainWindow *s
     g_signal_connect(view_box, "edit",   G_CALLBACK(on_view_edit),   self);
     g_signal_connect(view_box, "delete", G_CALLBACK(on_view_delete), self);
 
-    char *service = malloc(strlen("Service: ") + strlen(e->service) + 1);
-    sprintf(service, "Service: %s", e->service);
+    char *service = e->service;
     char *username = malloc(strlen("Username: ") + strlen(e->username) + 1);
     sprintf(username, "Username: %s", e->username);
     char *password = malloc(strlen("Password: ") + strlen(e->password) + 1);
@@ -232,8 +231,8 @@ static void on_entry_selected(GtkListBox *box, GtkListBoxRow *row, MainWindow *s
     gtk_label_set_text(GTK_LABEL(view_box->username_label), username);
     gtk_label_set_text(GTK_LABEL(view_box->password_label), password);
     gtk_label_set_text(GTK_LABEL(view_box->notes_label), notes);
+    if (strlen(notes) == 0) gtk_label_set_text(GTK_LABEL(view_box->notes_title), "");
 
-    free(service);
     free(username);
     free(password);
 }

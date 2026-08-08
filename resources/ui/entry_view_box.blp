@@ -14,7 +14,7 @@ template $EntryViewBox : Box {
         margin-start: 15;
         margin-end: 15;
 
-        Label service_label { wrap: true; }
+        Label service_label { wrap: true; css-classes: ["service"]; }
         Label username_label { wrap: true; }
         Label password_label { wrap: true; }
         Label notes_title { label: _("Notes:"); }
@@ -27,6 +27,7 @@ template $EntryViewBox : Box {
                 wrap: true;
                 wrap-mode: word_char;
                 xalign: 0;
+                halign: center;
             }
         }
     }

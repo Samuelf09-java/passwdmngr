@@ -31,6 +31,7 @@ static void entry_view_box_class_init(EntryViewBoxClass *klass) {
     REGISTER_CHILD(EntryViewBox, username_label);
     REGISTER_CHILD(EntryViewBox, password_label);
     REGISTER_CHILD(EntryViewBox, notes_label);
+    REGISTER_CHILD(EntryViewBox, notes_title);
 
     REGISTER_CALLBACK(on_edit_clicked);
     REGISTER_CALLBACK(on_delete_clicked);

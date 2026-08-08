@@ -11,6 +11,7 @@ struct _EntryViewBox {
     GtkWidget *service_label;
     GtkWidget *username_label;
     GtkWidget *password_label;
+    GtkWidget *notes_title;
     GtkWidget *notes_label;
 
     int entry_id;

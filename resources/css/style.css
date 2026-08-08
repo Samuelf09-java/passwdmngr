@@ -1,11 +1,113 @@
 window {
-    /* background-color: #4e4e4e; */
-    background: linear-gradient(#2e2e2e, #1c1c1c);
+    background: linear-gradient(#1e1e1e, #121212);
+    color: #e6e6e6;
 }
 
-.login-panel {
-    background-color: #3d3d3d;
+.login-panel,
+.content-panel,
+.sidebar-panel {
+    background-color: #2a2a2a;
     border-radius: 12px;
     padding: 20px;
     box-shadow: 0 0 20px rgba(0,0,0,0.4);
+}
+
+label {
+    color: #e6e6e6;
+    font-size: 14px;
+}
+
+entry,
+passwordentry {
+    background-color: #2f2f2f;
+    color: #ffffff;
+    border-radius: 6px;
+    padding: 2px 6px;
+    border: 1px solid #444;
+}
+
+entry:focus,
+passwordentry:focus {
+    border-color: #5a8cff;
+    box-shadow: 0 0 0 2px rgba(90,140,255,0.3);
+}
+
+button {
+    background-color: #3a3a3a;
+    color: #ffffff;
+    border-radius: 8px;
+    padding: 5px 10px;
+    border: 1px solid #555;
+}
+
+button:hover {
+    background-color: #4a4a4a;
+}
+
+button:active {
+    background-color: #5a5a5a;
+}
+
+button.circular {
+    border-radius: 50%;
+    padding: 10px;
+    background-color: #3a3a3a;
+}
+
+textview {
+    background-color: #2b2b2b;
+    color: #ffffff;
+    border-radius: 8px;
+    border: 1px solid #444;
+}
+
+listbox {
+    background-color: #1e1e1e;
+    border-radius: 8px;
+}
+
+listbox row {
+    padding: 10px;
+    background-color: #2a2a2a;
+    color: #e6e6e6;
+}
+
+listbox row:selected {
+    background-color: #3d3d3d;
+    border-left: 4px solid #5a8cff;
+}
+
+scrolledwindow {
+    background-color: #1e1e1e;
+    border-radius: 8px;
+}
+
+paned > separator {
+    background-color: #333;
+}
+
+headerbar,
+menubar {
+    background-color: #484848;
+    color: #e6e6e6;
+    border-bottom: 1px solid #333;
+}
+
+.service {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.service-select {
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.gray-bg {
+    background-color: #303030;
+}
+
+notes_text {
+    padding: 8px;
+    border-radius: 7px;
 }
