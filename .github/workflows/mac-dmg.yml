@@ -9,6 +9,11 @@ jobs:
   build-macos:
     runs-on: macos-latest
 
+    env:
+      MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+      MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+      MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -73,7 +78,7 @@ jobs:
       - name: Install signing certificate
         run: |
           echo "$MACOS_CERTIFICATE"
-          echo "$MACOS_CERTIFICATE" | sed ':a;N;$!ba;s/\s//g' | base64 --decode > signing_cert.p12
+          echo "$MACOS_CERTIFICATE" | base64 --decode > signing_cert.p12
           xxd signing_cert.p12 | head
           security create-keychain -p "" build.keychain
           security import signing_cert.p12 -f pkcs12 -k build.keychain -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
