@@ -67,9 +67,7 @@ jobs:
       - name: Add rpath for bundled libraries
         run: |
           install_name_tool -add_rpath "@executable_path/../Frameworks" \
-            dist/PasswordManager.app/Contents/MacOS/passwdmngr
-          install_name_tool -add_rpath "@loader_path/../Frameworks" \
-            dist/PasswordManager.app/Contents/MacOS/passwdmngr
+            dist/PasswordManager.app/Contents/MacOS/passwdmngr || true
 
 
       - name: Install signing certificate

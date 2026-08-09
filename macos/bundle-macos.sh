@@ -95,8 +95,8 @@ if [[ -d "$GLIB_PREFIX/share/glib-2.0/schemas" ]]; then
 fi
 
 if [[ -d "$GDKPIXBUF_PREFIX/lib/gdk-pixbuf-2.0/2.10.0/loaders" ]]; then
-    mkdir -p "$FW/gdk-pixbuf-2.0/2.10.0/loaders"
-    cp "$GDKPIXBUF_PREFIX/lib/gdk-pixbuf-2.0/2.10.0/loaders/"* "$FW/gdk-pixbuf-2.10.0/loaders" || true
+    mkdir -p "$RES/lib/gdk-pixbuf-2.0/2.10.0/loaders"
+    cp "$GDKPIXBUF_PREFIX/lib/gdk-pixbuf-2.0/2.10.0/loaders/"* "$RES/lib/gdk-pixbuf-2.0/2.10.0/loaders" || true
 fi
 
 if [[ -d "$GTK_PREFIX/lib/pango" ]]; then
