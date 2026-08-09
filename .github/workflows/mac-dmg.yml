@@ -77,12 +77,12 @@ jobs:
 
       - name: Install signing certificate
         run: |
-          echo "$MACOS_CERTIFICATE"
           echo "$MACOS_CERTIFICATE" | base64 --decode > signing_cert.p12
           xxd signing_cert.p12 | head
           security create-keychain -p "" build.keychain
           security import signing_cert.p12 -f pkcs12 -k build.keychain -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
           security unlock-keychain -p "" build.keychain
+          security find-identity -v build.keychain
 
       - name: Sign embedded libraries
         run: |
