@@ -231,6 +231,7 @@ jobs:
           done
 
       - name: Generate WiX components
+        if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
           $dist = "dist"
