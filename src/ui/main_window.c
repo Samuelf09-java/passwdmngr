@@ -35,6 +35,8 @@ static void box_remove_children(GtkBox *box) {
 
 static void on_delete_response(GObject *source, GAsyncResult *result, gpointer user_data) {
 
+    X(source);
+
     GtkAlertDialog *dialog = GTK_ALERT_DIALOG(user_data);
     int response = gtk_alert_dialog_choose_finish(dialog, result, NULL);
 
@@ -49,7 +51,7 @@ static void on_delete_response(GObject *source, GAsyncResult *result, gpointer u
     g_object_unref(dialog);
 
     if (!delete_entry(entry_id)) {
-        util_nonfatal("Failed to delete entry; check stderr for more information");
+        util_nonfatal_d("Failed to delete entry; check stderr for more information");
         return;
     }
 
@@ -74,7 +76,7 @@ static void on_view_edit(EntryViewBox *view_box, MainWindow *self) {
     edit_box->entry_id = view_box->entry_id;
     PasswdEntry *entry = storage_get_entry(view_box->entry_id);
     if (!entry) {
-        util_nonfatal("Failed to open edit menu: entry lookup failed");
+        util_nonfatal_d("Failed to open edit menu: entry lookup failed");
         return;
     }
     
@@ -100,20 +102,21 @@ static void on_view_delete(EntryViewBox *view_box, MainWindow *self) {
     g_object_set_data(G_OBJECT(dialog), "entry-id", GINT_TO_POINTER(view_box->entry_id));
     g_object_set_data(G_OBJECT(dialog), "main-window", self);
 
-    gtk_alert_dialog_choose(dialog, GTK_WINDOW(self), NULL, on_delete_response, dialog);
+    gtk_alert_dialog_choose(dialog, root_window, NULL, on_delete_response, dialog);
 }
 
 static void on_edit_save(EntryEditBox *edit_box, MainWindow *self) {
 
-    char *service = gtk_editable_get_text(GTK_EDITABLE(edit_box->service_entry));
+    char *service = strdup(gtk_editable_get_text(GTK_EDITABLE(edit_box->service_entry)));
     if (!strlen(service)) {
-        util_nonfatal("Missing required field 'service'");
+        util_nonfatal_d("Missing required field 'service'");
+        free(service);
         return;
     }
-    char *username = gtk_editable_get_text(GTK_EDITABLE(edit_box->username_entry));
-    if (!strlen(username)) util_warn("Field 'username' is missing, continuing");
-    char *password = gtk_editable_get_text(GTK_EDITABLE(edit_box->password_entry));
-    if (!strlen(password)) util_warn("Field 'password' is missing, continuing");
+    char *username = strdup(gtk_editable_get_text(GTK_EDITABLE(edit_box->username_entry)));
+    if (!strlen(username)) util_warn_d("Field 'username' is missing, continuing");
+    char *password = strdup(gtk_editable_get_text(GTK_EDITABLE(edit_box->password_entry)));
+    if (!strlen(password)) util_warn_d("Field 'password' is missing, continuing");
 
     GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(edit_box->notes_text));
     GtkTextIter start, end;
@@ -121,6 +124,14 @@ static void on_edit_save(EntryEditBox *edit_box, MainWindow *self) {
     char *notes = gtk_text_buffer_get_text(buffer, &start, &end, FALSE);
 
     PasswdEntry *new_entry = malloc(sizeof(PasswdEntry));
+    if (!new_entry) {
+        util_nonfatal_d("Failed to allocate memory for temporary new PasswdEntry");
+        free(service);
+        free(username);
+        free(password);
+        return;
+    }
+
     new_entry->id = edit_box->entry_id;
     new_entry->service = service;
     new_entry->username = username;
@@ -129,19 +140,38 @@ static void on_edit_save(EntryEditBox *edit_box, MainWindow *self) {
 
     if (edit_box->edit_mode == ENTRY_ADD) {
         if (!add_entry(new_entry)) {
-            util_nonfatal("Failed to add entry; check stderr for more information");
+            util_nonfatal_d("Failed to add entry; check stderr for more information");
             free(new_entry);
+            free(service);
+            free(username);
+            free(password);
             return;
         }
+
+        free(new_entry);
+        free(service);
+        free(username);
+        free(password);
     } else if (edit_box->edit_mode == ENTRY_EDIT) {
         if (!update_entry(edit_box->entry_id, new_entry)) {
-            util_nonfatal("Failed to update entry; check stderr for more information");
+            util_nonfatal_d("Failed to update entry; check stderr for more information");
             free(new_entry);
+            free(service);
+            free(username);
+            free(password);
             return;
         }
-    } else {
-        util_fatal("Invalid edit mode!");
+
         free(new_entry);
+        free(service);
+        free(username);
+        free(password);
+    } else {
+        util_fatal_d("Invalid edit mode!");
+        free(new_entry);
+        free(service);
+        free(username);
+        free(password);
         return;
     }
 
@@ -174,11 +204,11 @@ static void on_edit_save(EntryEditBox *edit_box, MainWindow *self) {
         if (row) {
             gtk_list_box_select_row(listbox, row);
         } else {
-            util_nonfatal("Failed to select edited entry");
+            util_nonfatal_d("Failed to select edited entry");
         }
         
     } else {
-        util_fatal("Invalid edit mode!");
+        util_fatal_d("Invalid edit mode!");
         return;
     }
 
@@ -188,6 +218,8 @@ static void on_edit_save(EntryEditBox *edit_box, MainWindow *self) {
 
 static void on_edit_cancel(EntryEditBox *edit_box, MainWindow *self) {
 
+    X(edit_box);
+
     box_remove_children(GTK_BOX(self->content_area));
     GtkWidget *none_box = g_object_new(ENTRY_NONE_BOX_TYPE, NULL);
     gtk_box_append(GTK_BOX(self->content_area), GTK_WIDGET(none_box));
@@ -196,6 +228,8 @@ static void on_edit_cancel(EntryEditBox *edit_box, MainWindow *self) {
 }
 
 static void on_entry_selected(GtkListBox *box, GtkListBoxRow *row, MainWindow *self) {
+
+    X(box);
     
     box_remove_children(GTK_BOX(self->content_area));
 
@@ -209,7 +243,7 @@ static void on_entry_selected(GtkListBox *box, GtkListBoxRow *row, MainWindow *s
     int id = *id_ptr;
     PasswdEntry *e = storage_get_entry(id);
     if (!e) {
-        util_nonfatal("Failed to load entry data; see stderr");
+        util_nonfatal_d("Failed to load entry data; see stderr");
         return;
     }
 
@@ -287,17 +321,17 @@ static void main_window_init(MainWindow *self) {
     g_object_unref(builder);
 
     char *title = malloc(strlen("Password Manager - ") + strlen(username) + 1);
-    if (!title) util_error("Window title malloc failed");
+    if (!title) util_log(ERROR, "Window title malloc failed");
     sprintf(title, "Password Manager - %s", username);
     gtk_window_set_title(GTK_WINDOW(root_window), title);
     free(title);
 
     Metadata *md = storage_read_user_metadata();
-    if (!md) util_fatal("Could not read user's metadata");
+    if (!md) util_fatal_d("Could not read user's metadata");
     
-    if (md->version != STORAGE_SCHEMA_VERSION) util_fatal("Invalid storage schema version; update with porting tool if applicable");
+    if (md->version != STORAGE_SCHEMA_VERSION) util_fatal_d("Invalid storage schema version; update with porting tool if applicable");
 
-    if (!storage_read_user_vault(md)) util_fatal("Failed to read user vault; check stderr for more information");
+    if (!storage_read_user_vault(md)) util_fatal_d("Failed to read user vault; check stderr for more information");
 
     reload_sidebar(self);
 

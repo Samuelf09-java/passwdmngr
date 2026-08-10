@@ -11,9 +11,13 @@ char *accounts_path = NULL;
 
 static void on_activate(GtkApplication *app) {
 
-    g_print("[passwdmngr/INFO]: Runtime gtk v%d.%d.%d\n", gtk_get_major_version(), gtk_get_minor_version(), gtk_get_micro_version());
+    util_log(INFO, "Started passwdmngr app");
+    util_log(INFO, "Runtime gtk v%d.%d.%d", gtk_get_major_version(), gtk_get_minor_version(), gtk_get_micro_version());
 
     passwdmngr = app;
+
+    GtkSettings *settings = gtk_settings_get_default();
+    g_object_set(settings, "gtk-application-prefer-dark-theme", TRUE, NULL);
 
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_resource(provider, "/com/samuelf09/passwdmngr/style.css");
@@ -32,14 +36,14 @@ static void on_activate(GtkApplication *app) {
     gtk_window_set_child(GTK_WINDOW(root_window), GTK_WIDGET(login_win));
 
     if (sodium_init() < 0) {
-        util_fatal("Failed to initialize libsodium");
+        util_fatal_d("Failed to initialize libsodium");
         return;
     }
 
     // Verify app files are present
     char *root = util_get_app_dir();
     if (!root) {
-        util_fatal("Could not determine user data directory.");
+        util_fatal_d("Could not determine user data directory.");
         return;
     }
 
@@ -68,7 +72,7 @@ static void on_activate(GtkApplication *app) {
     // Load accounts.json
     if (!load_accounts()) {
         free(accounts_path);
-        util_fatal("Failed to load account data from accounts.json; see stderr for more information");
+        util_fatal_d("Failed to load account data from accounts.json; see stderr for more information");
     }
     
     gtk_window_present(GTK_WINDOW(win));

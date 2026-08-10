@@ -10,7 +10,7 @@ bool verify_account(const char *uname, const char *passwd) {
     char *uname_hash = hash_uname(uname, strlen(uname));
 
     if (!uname_hash) {
-        util_fatal("Failed to hash username");
+        util_fatal_d("Failed to hash username");
         return false;
     }
 
@@ -37,7 +37,7 @@ bool verify_account(const char *uname, const char *passwd) {
 int hash_pw(const char *passwd, char *out, size_t out_len) {
 
     if (out_len != crypto_pwhash_STRBYTES) {
-        util_error("Invalid output length for hashing password");
+        util_log(ERROR, "Invalid output length for hashing password");
         return -1;
     }
 

@@ -18,12 +18,15 @@ G_DEFINE_FINAL_TYPE(AccountCreationWindow, account_creation_window, GTK_TYPE_BOX
 
 static void on_create_account_clicked(GtkButton *button, AccountCreationWindow *self) {
     X(button);
-    char *uname = gtk_editable_get_text(GTK_EDITABLE(self->uname_entry));
-    char *passwd = gtk_editable_get_text(GTK_EDITABLE(self->passwd_entry));
-    char *confirm_passwd = gtk_editable_get_text(GTK_EDITABLE(self->confirm_passwd_entry));
+    char *uname = strdup(gtk_editable_get_text(GTK_EDITABLE(self->uname_entry)));
+    char *passwd = strdup(gtk_editable_get_text(GTK_EDITABLE(self->passwd_entry)));
+    char *confirm_passwd = strdup(gtk_editable_get_text(GTK_EDITABLE(self->confirm_passwd_entry)));
 
     if (strlen(uname) == 0 || strlen(passwd) == 0 || strlen(confirm_passwd) == 0) {
-        util_nonfatal("Could not create account: fields cannot be blank");
+        util_nonfatal_d("Could not create account: fields cannot be blank");
+        free(uname);
+        free(passwd);
+        free(confirm_passwd);
         return;
     }
 
@@ -31,20 +34,32 @@ static void on_create_account_clicked(GtkButton *button, AccountCreationWindow *
         tmp_passwd = strdup(passwd);
 
         bool res = create_new_account(uname, passwd);
-        if (!res) util_nonfatal("Could not create account; check stderr for more information");
-        else {
+        if (!res) {
+            util_nonfatal_d("Could not create account; check stderr for more information");
+            free(uname);
+            free(passwd);
+            free(confirm_passwd);
+        } else {
             MainWindow *mainwin = g_object_new(MAIN_WINDOW_TYPE, NULL);
             gtk_window_set_child(GTK_WINDOW(root_window), GTK_WIDGET(mainwin));
 
-            util_info("New user login successful");
+            util_log(INFO, "New user login successful");
+
+            free(uname);
+            free(passwd);
+            free(confirm_passwd);
         }
     } else {
-        util_nonfatal("Could not create account: passwords do not match");
+        util_nonfatal_d("Could not create account: passwords do not match");
+        free(uname);
+        free(passwd);
+        free(confirm_passwd);
     }
 }
 
 static void on_cancel_clicked(GtkButton *button, AccountCreationWindow *self) {
     X(button);
+    X(self);
     LoginWindow *loginwin = g_object_new(LOGIN_WINDOW_TYPE, NULL);
     gtk_window_set_child(GTK_WINDOW(root_window), GTK_WIDGET(loginwin));
 }

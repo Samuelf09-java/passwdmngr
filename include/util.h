@@ -13,19 +13,29 @@ extern const char PATH_SEPARATOR;
 #define STORAGE_SCHEMA_VERSION 1
 
 enum ErrorType {
+    WARN_D,
+    NONFATAL_D,
+    FATAL_D
+};
+
+enum LogLevel {
+    INFO,
     WARN,
-    NONFATAL,
+    ERROR,
     FATAL
 };
 
+typedef enum ErrorType ErrorType;
+typedef enum LogLevel LogLevel;
+
 char *util_get_app_dir();
+char *util_get_logfile();
 int dir_exists(const char *path);
 
-void util_info(const char *msg);
+void util_log(LogLevel level, const char *fmt, ...);
 
-void util_error(const char *msg);
-void util_error_dialog(GtkWindow *parent, const char *msg, enum ErrorType error_type, GtkApplication *app);
-void util_fatal(const char *msg);
-void util_nonfatal(const char *msg);
-void util_warn(const char *msg);
+void util_error_dialog(GtkWindow *parent, const char *msg, ErrorType error_type, GtkApplication *app);
+void util_fatal_d(const char *msg);
+void util_nonfatal_d(const char *msg);
+void util_warn_d(const char *msg);
 bool util_check_ptr(void *ptr, const char *msg);

@@ -16,7 +16,7 @@ char *util_get_app_dir() {
     if (!home) return NULL;
     root = malloc(strlen(home) + strlen("/.local/share/passwdmngr/") + 1);
     if (!root) {
-        util_error("Failed to allocate memory for root path");
+        util_log(ERROR, "Failed to allocate memory for root path");
         return NULL;
     }
     sprintf(root, "%s/.local/share/passwdmngr/", home);
@@ -26,7 +26,7 @@ char *util_get_app_dir() {
     if (!home) return NULL;
     root = malloc(strlen(home) + strlen("/Library/Application Support/passwdmngr/") + 1);
     if (!root) {
-        util_error("Failed to allocate memory for root path");
+        util_log(ERROR, "Failed to allocate memory for root path");
         return NULL;
     }
     sprintf(root, "%s/Library/Application Support/passwdmngr/", home);
@@ -37,7 +37,7 @@ char *util_get_app_dir() {
     if (!local) return NULL;
     root = malloc(strlen(local) + strlen("\\passwdmngr\\") + 1);
     if (!root) {
-        util_error("Failed to allocate memory for root path");
+        util_log(ERROR, "Failed to allocate memory for root path");
         return NULL;
     }
     sprintf(root, "%s\\passwdmngr\\", local);
@@ -49,33 +49,91 @@ char *util_get_app_dir() {
 #endif
 }
 
+char *util_get_logfile() {
+    char *basedir = util_get_app_dir();
+    char *ret = malloc(strlen(basedir) + strlen("passwdmngr.log") + 1);
+    sprintf(ret, "%spasswdmngr.log", basedir);
+    free(basedir);
+    return ret;
+}
+
 int dir_exists(const char *path) {
     return g_file_test(path, G_FILE_TEST_IS_DIR);
 }
 
-void util_info(const char *msg) {
-    g_print("[passwdmngr/INFO]: %s\n", msg);
-}
+void util_log(LogLevel level, const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
 
-void util_error(const char *msg) {
-    g_printerr("[passwdmngr/ERROR]: %s\n", msg);
-}
-
-void util_error_dialog(GtkWindow *parent, const char *msg, enum ErrorType error_type, GtkApplication *app) {
+    char *msg = g_strdup_vprintf(fmt, args);
 
     char *prefix = NULL;
 
-    if (error_type == WARN)          prefix = "[passwdmngr/WARNING]: ";
-    else if (error_type == NONFATAL) prefix = "[passwdmngr/ERROR]: ";
-    else                             prefix = "[passwdmngr/FATAL ERROR]: ";
+    if (level == INFO)       prefix = "[passwdmngr/INFO]: ";
+    else if (level == WARN)  prefix = "[passwdmngr/WARNING]: ";
+    else if (level == ERROR) prefix = "[passwdmngr/ERROR]: ";
+    else                     prefix = "[passwdmngr/FATAL ERROR]: ";
+
+    time_t now = time(NULL);
+    struct tm *log_time = localtime(&now);
+    char time_buf[20];
+
+    strftime(time_buf, sizeof(time_buf), "%m-%d-%Y %H:%M:%S", log_time);
+
+    char *log_msg    = malloc(strlen(msg) + strlen(prefix) + sizeof(time_buf) + 4);
+    char *stdout_msg = malloc(strlen(msg) + strlen(prefix) + 1);
+    sprintf(log_msg, "(%s) %s%s", time_buf, prefix, msg);
+    sprintf(stdout_msg,   "%s%s",           prefix, msg);
+    g_free(msg);
+    
+    if (level > WARN)
+        g_printerr("%s\n", stdout_msg);
+    else
+        g_print("%s\n", stdout_msg);
+
+    FILE *fp = fopen(util_get_logfile(), "a");
+    if (fp) {
+        fprintf(fp, "%s\n", log_msg);
+        fclose(fp);
+    }
+
+    free(log_msg);
+    free(stdout_msg);
+    va_end(args);
+}
+
+void util_error_dialog(GtkWindow *parent, const char *msg, ErrorType error_type, GtkApplication *app) {
+
+    char *prefix = NULL;
+
+    if (error_type == WARN_D)          prefix = "[passwdmngr/WARNING]: ";
+    else if (error_type == NONFATAL_D) prefix = "[passwdmngr/ERROR]: ";
+    else                               prefix = "[passwdmngr/FATAL ERROR]: ";
 
     size_t msg_len = strlen(msg) + strlen(prefix) + 1;
     char *error_msg = malloc(msg_len);
     sprintf(error_msg, "%s%s", prefix, msg);
 
-    g_printerr("%s\n", error_msg);
+    LogLevel level;
+
+    switch (error_type) {
+    case WARN_D:
+        level = WARN;
+        break;
+
+    case NONFATAL_D:
+        level = ERROR;
+        break;
+    
+    default: // fatal
+        level = FATAL;
+        break;
+    }
+
+    util_log(level, msg);
+
     if (!parent) {
-        if (error_type == FATAL) g_application_quit(G_APPLICATION(app));
+        if (error_type == FATAL_D) g_application_quit(G_APPLICATION(app));
         return;
     }
 
@@ -85,24 +143,24 @@ void util_error_dialog(GtkWindow *parent, const char *msg, enum ErrorType error_
     gtk_alert_dialog_set_buttons(dialog, buttons);
     gtk_alert_dialog_show(dialog, parent);
 
-    if (error_type == FATAL) g_application_quit(G_APPLICATION(app));
+    if (error_type == FATAL_D) g_application_quit(G_APPLICATION(app));
 }
 
-void util_fatal(const char *msg) {
-    util_error_dialog(root_window, msg, FATAL, passwdmngr);
+void util_fatal_d(const char *msg) {
+    util_error_dialog(root_window, msg, FATAL_D, passwdmngr);
 }
 
-void util_nonfatal(const char *msg) {
-    util_error_dialog(root_window, msg, NONFATAL, passwdmngr);
+void util_nonfatal_d(const char *msg) {
+    util_error_dialog(root_window, msg, NONFATAL_D, passwdmngr);
 }
 
-void util_warn(const char *msg) {
-    util_error_dialog(root_window, msg, WARN, passwdmngr);
+void util_warn_d(const char *msg) {
+    util_error_dialog(root_window, msg, WARN_D, passwdmngr);
 }
 
 bool util_check_ptr(void *ptr, const char *msg) {
     if (!ptr) {
-        util_error(msg);
+        util_log(ERROR, msg);
         return false;
     }
     return true;

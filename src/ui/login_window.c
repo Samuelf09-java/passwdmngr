@@ -20,14 +20,15 @@ static void on_login_clicked(GtkButton *button, LoginWindow *self) {
         MainWindow *mainwin = g_object_new(MAIN_WINDOW_TYPE, NULL);
         gtk_window_set_child(GTK_WINDOW(root_window), GTK_WIDGET(mainwin));
 
-        util_info("Login successful");
+        util_log(INFO, "Login successful");
     } else {
-        util_nonfatal("Invalid username or password");
+        util_nonfatal_d("Invalid username or password");
     }
 }
 
 static void on_account_button_clicked(GtkButton *button, LoginWindow *self) {
     X(button);
+    X(self);
     AccountCreationWindow *create_account_win = g_object_new(ACCOUNT_CREATION_WINDOW_TYPE, NULL);
     gtk_window_set_child(GTK_WINDOW(root_window), GTK_WIDGET(create_account_win));
 }

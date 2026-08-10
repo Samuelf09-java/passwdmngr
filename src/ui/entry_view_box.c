@@ -12,10 +12,12 @@ enum {
 static guint entry_view_box_signals[N_SIGNALS];
 
 static void on_edit_clicked(GtkButton *button, EntryViewBox *self) {
+    X(button);
     g_signal_emit(self, entry_view_box_signals[EDIT], 0);
 }
 
 static void on_delete_clicked(GtkButton *button, EntryViewBox *self) {
+    X(button);
     g_signal_emit(self, entry_view_box_signals[DELETE], 0);
 }
 
