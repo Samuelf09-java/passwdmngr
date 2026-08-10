@@ -1,4 +1,4 @@
-name: Build Linux Executable
+name: Build App
 
 on:
   workflow_dispatch:
@@ -6,7 +6,7 @@ on:
     branches: [ main ]
 
 jobs:
-  build-linux:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -25,7 +25,7 @@ jobs:
             libsodium-dev \
             libssl-dev \
             python3 python3-pip \
-            meson ninja-build
+            meson ninja-build \
 
       - name: Build and install Blueprint compiler
         run: |
@@ -50,9 +50,3 @@ jobs:
           export PATH="/usr/local/bin/blueprint-wrapper:$PATH"
           make clean
           make
-
-      - name: Upload Linux build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-build
-          path: passwdmngr
