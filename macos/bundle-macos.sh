@@ -44,7 +44,7 @@ bundle_lib() {
         chmod 755 "$dest"
 
         # Rewrite install name of the library itself
-        install_name_tool -id "@rpath/$base" "$dest"
+        install_name_tool -id "@rpath/$base" "$dest" 2> >(grep -v "invalidate the code signature" >&2)
 
         # Rewrite dependencies inside the library
         for dep in $(otool -L "$dest" | awk '{print $1}' | tail -n +2); do
