@@ -54,7 +54,7 @@ bundle_lib() {
 
             local depbase=$(basename "$dep")
             echo "Fixing dependency $dep → @rpath/$depbase"
-            install_name_tool -change "$dep" "@rpath/$depbase" "$dest" 2>/dev/null
+            install_name_tool -change "$dep" "@rpath/$depbase" "$dest" 2> >(grep -v "invalidate the code signature" >&2)
 
             # Recursively bundle dependency
             bundle_lib "$dep"
