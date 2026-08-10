@@ -83,7 +83,8 @@ jobs:
           security unlock-keychain -p "buildpass" build.keychain
           security import signing_cert.p12 -f pkcs12 -k build.keychain -P "$MACOS_CERT_PASSWORD" -A
           security list-keychains -s build.keychain login.keychain
-          security find-identity -v build.keychain
+          security set-key-partition-list -S apple-tool:,apple: -s -k buildpass build.keychain
+          security dump-keychain build.keychain
 
       - name: Sign embedded libraries
         run: |
