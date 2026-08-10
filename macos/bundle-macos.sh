@@ -8,15 +8,10 @@ RES="$APP_DIR/Contents/Resources"
 FW="$APP_DIR/Contents/Frameworks"
 SHARE="$RES/share"
 
-VERBOSE=${VERBOSE:-0}
-
-log() {
-    [[ "$VERBOSE" == 1 ]] && echo "$@"
-}
-
 mkdir -p "$FW" "$SHARE"
 
 echo "Bundling macOS app: $APP_NAME"
+echo "Executable: $BIN"
 
 bundle_lib() {
     local lib="$1"
@@ -32,11 +27,11 @@ bundle_lib() {
         local real=$(find /opt/homebrew -name "$base" 2>/dev/null | head -n 1)
 
         if [[ -z "$real" ]]; then
-            log "WARNING: Could not resolve $lib"
+            echo "WARNING: Could not resolve $lib"
             return
         fi
 
-        log "Resolved $lib → $real"
+        echo "Resolved $lib → $real"
         lib="$real"
     fi
 
@@ -44,10 +39,11 @@ bundle_lib() {
     local dest="$FW/$base"
 
     if [[ ! -f "$dest" ]]; then
-        log "Copying $lib → $dest"
+        echo "Copying $lib → $dest"
         cp "$lib" "$dest"
         chmod 755 "$dest"
 
+        # Rewrite install name of the library itself
         install_name_tool -id "@rpath/$base" "$dest"
 
         # Rewrite dependencies inside the library
@@ -57,15 +53,16 @@ bundle_lib() {
             fi
 
             local depbase=$(basename "$dep")
-            log "Fixing dependency $dep → @rpath/$depbase"
+            echo "Fixing dependency $dep → @rpath/$depbase"
             install_name_tool -change "$dep" "@rpath/$depbase" "$dest"
 
+            # Recursively bundle dependency
             bundle_lib "$dep"
         done
     fi
 }
 
-echo "Scanning executable dependencies..."
+echo "Scanning executable for dependencies..."
 for lib in $(otool -L "$BIN" | awk '{print $1}' | tail -n +2); do
     bundle_lib "$lib"
 done
@@ -77,7 +74,7 @@ for dep in $(otool -L "$BIN" | awk '{print $1}' | tail -n +2); do
     fi
 
     depbase=$(basename "$dep")
-    log "Fixing executable dep $dep → @executable_path/../Frameworks/$depbase"
+    echo "Fixing executable dep $dep → @executable_path/../Frameworks/$depbase"
     install_name_tool -change "$dep" "@executable_path/../Frameworks/$depbase" "$BIN"
 done
 
@@ -87,23 +84,29 @@ GTK_PREFIX=$(brew --prefix gtk4)
 GLIB_PREFIX=$(brew --prefix glib)
 GDKPIXBUF_PREFIX=$(brew --prefix gdk-pixbuf)
 
-[[ -d "$GTK_PREFIX/share" ]] && cp -R "$GTK_PREFIX/share" "$SHARE/gtk4"
-[[ -d "$GLIB_PREFIX/share/glib-2.0/schemas" ]] && {
+if [[ -d "$GTK_PREFIX/share" ]]; then
+    cp -R "$GTK_PREFIX/share" "$SHARE/gtk4"
+fi
+
+if [[ -d "$GLIB_PREFIX/share/glib-2.0/schemas" ]]; then
     mkdir -p "$SHARE/glib-2.0/schemas"
     cp "$GLIB_PREFIX/share/glib-2.0/schemas/"* "$SHARE/glib-2.0/schemas/" || true
     glib-compile-schemas "$SHARE/glib-2.0/schemas" || true
-}
-[[ -d "$GDKPIXBUF_PREFIX/lib/gdk-pixbuf-2.0/2.10.0/loaders" ]] && {
+fi
+
+if [[ -d "$GDKPIXBUF_PREFIX/lib/gdk-pixbuf-2.0/2.10.0/loaders" ]]; then
     mkdir -p "$RES/lib/gdk-pixbuf-2.0/2.10.0/loaders"
     cp "$GDKPIXBUF_PREFIX/lib/gdk-pixbuf-2.0/2.10.0/loaders/"* "$RES/lib/gdk-pixbuf-2.0/2.10.0/loaders" || true
-}
-[[ -d "$GTK_PREFIX/lib/pango" ]] && {
+fi
+
+if [[ -d "$GTK_PREFIX/lib/pango" ]]; then
     mkdir -p "$FW/pango"
     cp "$GTK_PREFIX/lib/pango/"* "$FW/pango" || true
-}
-[[ -d "$GTK_PREFIX/share/icons" ]] && {
+fi
+
+if [[ -d "$GTK_PREFIX/share/icons" ]]; then
     mkdir -p "$SHARE/icons"
     cp -R "$GTK_PREFIX/share/icons" "$SHARE/icons" || true
-}
+fi
 
 echo "Bundling complete."
