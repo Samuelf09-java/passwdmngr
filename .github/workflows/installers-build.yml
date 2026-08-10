@@ -230,13 +230,67 @@ jobs:
               cp "$winpath" dist/
           done
 
+      - name: Generate WiX components
+        shell: pwsh
+        run: |
+          $dist = "dist"
+          $out = "dist-components.wxs"
+
+          $xml = @"
+          <?xml version="1.0" encoding="UTF-8"?>
+          <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+            <Fragment>
+              <DirectoryRef Id="INSTALLFOLDER">
+          "@
+
+          function New-StableGuid($name) {
+              $bytes = [System.Text.Encoding]::UTF8.GetBytes($name)
+              $hash = (New-Object System.Security.Cryptography.SHA1Managed).ComputeHash($bytes)
+              $guid = [Guid]::New([BitConverter]::ToString($hash[0..15]).Replace("-", ""))
+              return $guid.ToString()
+          }
+
+          $components = @()
+
+          Get-ChildItem $dist | ForEach-Object {
+              $file = $_.Name
+              $id = "File_" + ($file -replace '[^A-Za-z0-9_]', '_')
+              $guid = New-StableGuid($file)
+              $components += $id
+
+              $xml += @"
+                <Component Id="$id" Guid="$guid">
+                  <File Id="${id}_File" Source="$dist\$file" />
+                </Component>
+          "@
+          }
+
+          $xml += @"
+              </DirectoryRef>
+            </Fragment>
+            <Fragment>
+              <ComponentGroup Id="AppComponents">
+          "@
+
+          foreach ($id in $components) {
+              $xml += "      <ComponentRef Id=""$id"" />`n"
+          }
+
+          $xml += @"
+              </ComponentGroup>
+            </Fragment>
+          </Wix>
+          "@
+
+          Set-Content -Path $out -Value $xml
+
       - name: Build MSI
         if: matrix.os == 'windows-latest'
         run: |
           choco install wixtoolset --yes
           copy .github/workflows/installer-data/windows/installer.wxs .
-          candle.exe installer.wxs
-          light.exe installer.wixobj -ext WixUIExtension -o passwdmngr.msi
+          candle.exe installer.wxs dist-components.wxs -dAppDir=dist
+          light.exe installer.wixobj dist-components.wixobj -ext WixUIExtension -o passwdmngr.msi
 
       - name: Upload MSI
         if: matrix.os == 'windows-latest'
