@@ -374,7 +374,11 @@ bool storage_read_user_vault(Metadata *md) {
 
         free(salt);
         key_set = true;
-        free(tmp_passwd); // get plaintext password out of memory
+
+        // get plaintext password out of memory
+        wipe_mem(tmp_passwd, strlen(tmp_passwd));
+        free(tmp_passwd);
+        tmp_passwd = NULL;
     }
 
     uint8_t *plaintext = malloc(ciphertext_len);
@@ -556,7 +560,11 @@ bool storage_write_user_vault(Metadata *md) {
 
         free(salt);
         key_set = true;
-        free(tmp_passwd); // get plaintext password out of memory
+
+        // get plaintext password out of memory
+        wipe_mem(tmp_passwd, strlen(tmp_passwd));
+        free(tmp_passwd);
+        tmp_passwd = NULL;
     }
 
     uint8_t nonce[12];
@@ -760,4 +768,39 @@ bool update_entry(int id, PasswdEntry *new_entry) {
     }
 
     return true;
+}
+
+// Shred the sensitive entries array
+void wipe_passwd_entries() {
+    for (int i = 0; i < num_entries; i++) {
+
+        if (entries[i].service) {
+            wipe_mem(entries[i].service, strlen(entries[i].service));
+            free(entries[i].service);
+            entries[i].service = NULL;
+        }
+
+        if (entries[i].username) {
+            wipe_mem(entries[i].username, strlen(entries[i].username));
+            free(entries[i].username);
+            entries[i].username = NULL;
+        }
+
+        if (entries[i].password) {
+            wipe_mem(entries[i].password, strlen(entries[i].password));
+            free(entries[i].password);
+            entries[i].password = NULL;
+        }
+
+        if (entries[i].notes) {
+            wipe_mem(entries[i].notes, strlen(entries[i].notes));
+            free(entries[i].notes);
+            entries[i].notes = NULL;
+        }
+    }
+
+    wipe_mem(entries, sizeof(PasswdEntry) * num_entries);
+    free(entries);
+    entries = NULL;
+    num_entries = -1;
 }

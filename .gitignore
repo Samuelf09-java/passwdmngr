@@ -34,3 +34,8 @@ vgcore*
 # OS junk
 .DS_Store
 Thumbs.db
+
+# Old/temp/backup files
+*.old
+*.tmp
+*.bck

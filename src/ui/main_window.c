@@ -1,4 +1,6 @@
+#include <string.h>
 #include "ui/main_window.h"
+#include "ui/login_window.h"
 #include "util.h"
 #include "storage.h"
 #include "main.h"
@@ -113,8 +115,8 @@ static void on_edit_save(EntryEditBox *edit_box, MainWindow *self) {
         free(service);
         return;
     }
-    char *username = strdup(gtk_editable_get_text(GTK_EDITABLE(edit_box->username_entry)));
-    if (!strlen(username)) util_warn_d("Field 'username' is missing, continuing");
+    char *new_username = strdup(gtk_editable_get_text(GTK_EDITABLE(edit_box->username_entry)));
+    if (!strlen(new_username)) util_warn_d("Field 'new_username' is missing, continuing");
     char *password = strdup(gtk_editable_get_text(GTK_EDITABLE(edit_box->password_entry)));
     if (!strlen(password)) util_warn_d("Field 'password' is missing, continuing");
 
@@ -127,14 +129,14 @@ static void on_edit_save(EntryEditBox *edit_box, MainWindow *self) {
     if (!new_entry) {
         util_nonfatal_d("Failed to allocate memory for temporary new PasswdEntry");
         free(service);
-        free(username);
+        free(new_username);
         free(password);
         return;
     }
 
     new_entry->id = edit_box->entry_id;
     new_entry->service = service;
-    new_entry->username = username;
+    new_entry->username = new_username;
     new_entry->password = password;
     new_entry->notes = notes;
 
@@ -143,34 +145,34 @@ static void on_edit_save(EntryEditBox *edit_box, MainWindow *self) {
             util_nonfatal_d("Failed to add entry; check stderr for more information");
             free(new_entry);
             free(service);
-            free(username);
+            free(new_username);
             free(password);
             return;
         }
 
         free(new_entry);
         free(service);
-        free(username);
+        free(new_username);
         free(password);
     } else if (edit_box->edit_mode == ENTRY_EDIT) {
         if (!update_entry(edit_box->entry_id, new_entry)) {
             util_nonfatal_d("Failed to update entry; check stderr for more information");
             free(new_entry);
             free(service);
-            free(username);
+            free(new_username);
             free(password);
             return;
         }
 
         free(new_entry);
         free(service);
-        free(username);
+        free(new_username);
         free(password);
     } else {
         util_fatal_d("Invalid edit mode!");
         free(new_entry);
         free(service);
-        free(username);
+        free(new_username);
         free(password);
         return;
     }
@@ -287,6 +289,154 @@ static void on_add_entry_clicked(GtkButton *button, MainWindow *self) {
     gtk_box_append(GTK_BOX(self->content_area), GTK_WIDGET(edit_box));
 }
 
+static void on_clearlog_response(GObject *source, GAsyncResult *result, gpointer user_data) {
+    X(source);
+
+    GtkAlertDialog *dialog = GTK_ALERT_DIALOG(user_data);
+    int response = gtk_alert_dialog_choose_finish(dialog, result, NULL);
+
+    if (response != 1) { // cancel
+        g_object_unref(dialog);
+        return;
+    }
+
+    FILE *fp = fopen(util_get_logfile(), "w");
+    if (fp) {
+        fclose(fp);
+        util_log(INFO, "Logfile cleared");
+        return;
+    }
+
+    util_nonfatal_d("Failed to clear logfile: util returned null file pointer");
+}
+
+static void export_cb(GSimpleAction *action, GVariant *parameter, gpointer user_data) {
+    X(action);
+    X(parameter);
+    X(user_data);
+    util_log(DEBUG, "Export triggered");
+}
+
+static void import_cb(GSimpleAction *action, GVariant *parameter, gpointer user_data) {
+    X(action);
+    X(parameter);
+    X(user_data);
+    util_log(DEBUG, "Import triggered");
+}
+
+static void openlog_cb(GSimpleAction *action, GVariant *parameter, gpointer user_data) {
+    X(action);
+    X(parameter);
+    X(user_data);
+    util_log(DEBUG, "Open log triggered");
+}
+
+static void clearlog_cb(GSimpleAction *action, GVariant *parameter, gpointer user_data) {
+    X(action);
+    X(parameter);
+    X(user_data);
+    util_log(DEBUG, "Clear log triggered");
+    GtkAlertDialog *dialog = gtk_alert_dialog_new(
+        "Are you sure you want to clear the log file?\n"
+        "This operation is permanent and cannot be undone."
+    );
+
+    const char *buttons[] = { "Cancel", "Clear", NULL };
+    gtk_alert_dialog_set_buttons(dialog, buttons);
+
+    gtk_alert_dialog_choose(dialog, root_window, NULL, on_clearlog_response, dialog);
+}
+
+static void logout_cb(GSimpleAction *action, GVariant *parameter, gpointer user_data) {
+    X(action);
+    X(parameter);
+    util_log(DEBUG, "Logout triggered");
+
+    util_log(INFO, "Logging out user %s", username);
+
+    MainWindow *self = MAIN_WINDOW(user_data);
+
+    GtkWidget *menubar = gtk_widget_get_first_child(GTK_WIDGET(self->menubar_box));
+    if (menubar)
+        gtk_box_remove(GTK_BOX(self->menubar_box), menubar);
+
+    // Wipe entries array (all the decrypted data from vault.bin)
+    wipe_passwd_entries();
+
+    // shouldn't be necessary but wipe password just in case wasn't already
+    if (tmp_passwd) {
+        wipe_mem(tmp_passwd, strlen(tmp_passwd));
+        free(tmp_passwd);
+        tmp_passwd = NULL;
+    }
+
+    wipe_mem(aes_key, sizeof(aes_key));
+    key_set = false;
+
+    free(username);
+    username = NULL;
+
+    util_log(DEBUG, "Cleared all user-specific globals from storage.c");
+    
+    // Unregister actions
+    g_action_map_remove_action(G_ACTION_MAP(passwdmngr), "logout");
+    g_action_map_remove_action(G_ACTION_MAP(passwdmngr), "export");
+    g_action_map_remove_action(G_ACTION_MAP(passwdmngr), "import");
+    g_action_map_remove_action(G_ACTION_MAP(passwdmngr), "openlog");
+    g_action_map_remove_action(G_ACTION_MAP(passwdmngr), "clearlog");
+    g_action_map_remove_action(G_ACTION_MAP(passwdmngr), "changepasswd");
+    g_action_map_remove_action(G_ACTION_MAP(passwdmngr), "deleteacc");
+
+    // Disconnect signal handlers
+    g_signal_handlers_disconnect_by_func(self->entries_listbox, on_entry_selected, self);
+    g_signal_handlers_disconnect_by_func(self->add_entry_button, on_add_entry_clicked, self);
+    g_signal_handlers_disconnect_by_func(self->content_area, on_view_edit, self);
+    g_signal_handlers_disconnect_by_func(self->content_area, on_view_delete, self);
+    g_signal_handlers_disconnect_by_func(self->content_area, on_edit_save, self);
+    g_signal_handlers_disconnect_by_func(self->content_area, on_edit_cancel, self);
+
+    util_log(DEBUG, "Disconnected signal handlers");
+
+    LoginWindow *loginwin = g_object_new(LOGIN_WINDOW_TYPE, NULL);
+    gtk_window_set_child(GTK_WINDOW(root_window), GTK_WIDGET(loginwin));
+
+    util_log(DEBUG, "Successfully reset to login_window view");
+}
+
+static void changepasswd_cb(GSimpleAction *action, GVariant *parameter, gpointer user_data) {
+    X(action);
+    X(parameter);
+    X(user_data);
+    util_log(DEBUG, "Change password triggered");
+}
+
+static void deleteacc_cb(GSimpleAction *action, GVariant *parameter, gpointer user_data) {
+    X(action);
+    X(parameter);
+    X(user_data);
+    util_log(DEBUG, "Delete account triggered");
+}
+
+void register_actions(MainWindow *self) {
+    const GActionEntry entries[] = {
+        { "export",        export_cb,        NULL, NULL, NULL, {0} },
+        { "import",        import_cb,        NULL, NULL, NULL, {0} },
+        { "openlog",       openlog_cb,       NULL, NULL, NULL, {0} },
+        { "clearlog",      clearlog_cb,      NULL, NULL, NULL, {0} },
+        { "logout",        logout_cb,        NULL, NULL, NULL, {0} },
+        { "changepasswd",  changepasswd_cb,  NULL, NULL, NULL, {0} },
+        { "deleteacc",     deleteacc_cb,     NULL, NULL, NULL, {0} },
+    };
+
+    g_action_map_add_action_entries(G_ACTION_MAP(passwdmngr), entries, G_N_ELEMENTS(entries), self);
+}
+
+// wrapper for `g_idle_add((GSourceFunc)unselect_all_idle, self->entries_listbox);` to call
+static gboolean unselect_all_idle(gpointer data) {
+    gtk_list_box_unselect_all(GTK_LIST_BOX(data));
+    return G_SOURCE_REMOVE;
+}
+
 static void main_window_class_init(MainWindowClass *klass) {
     GtkWidgetClass *widget_class = GTK_WIDGET_CLASS(klass);
 
@@ -339,5 +489,5 @@ static void main_window_init(MainWindow *self) {
     GtkWidget *none_box = g_object_new(ENTRY_NONE_BOX_TYPE, NULL);
     gtk_box_append(GTK_BOX(self->content_area), GTK_WIDGET(none_box));
 
-    g_idle_add((GSourceFunc)gtk_list_box_unselect_all, self->entries_listbox);
+    g_idle_add((GSourceFunc)unselect_all_idle, self->entries_listbox);
 }

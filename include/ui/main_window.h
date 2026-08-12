@@ -17,3 +17,5 @@ struct _MainWindow {
 
     bool sidebar_ready;
 };
+
+void register_actions(MainWindow *self);

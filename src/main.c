@@ -1,6 +1,7 @@
 #include <sys/stat.h>
 #include <sodium.h>
 #include "ui/login_window.h"
+#include "ui/main_window.h"
 #include "storage.h"
 #include "util.h"
 #include "main.h"
@@ -12,7 +13,8 @@ char *accounts_path = NULL;
 static void on_activate(GtkApplication *app) {
 
     util_log(INFO, "Started passwdmngr app");
-    util_log(INFO, "Runtime gtk v%d.%d.%d", gtk_get_major_version(), gtk_get_minor_version(), gtk_get_micro_version());
+    util_log(DEBUG, "Debug messages are enabled");
+    util_log(DEBUG, "Runtime gtk v%d.%d.%d", gtk_get_major_version(), gtk_get_minor_version(), gtk_get_micro_version());
 
     passwdmngr = app;
 
@@ -78,9 +80,31 @@ static void on_activate(GtkApplication *app) {
     gtk_window_present(GTK_WINDOW(win));
 }
 
+static void on_shutdown(GApplication *app, gpointer user_data) {
+
+    X(app);
+    X(user_data);
+
+    if (entries) wipe_passwd_entries();
+    if (tmp_passwd) {
+        wipe_mem(tmp_passwd, strlen(tmp_passwd));
+        free(tmp_passwd);
+        tmp_passwd = NULL;
+    }
+    wipe_mem(aes_key, sizeof(aes_key));
+    key_set = false;
+    if (username) {
+        free(username);
+        username = NULL;
+    }
+
+    util_log(INFO, "App shut down (cleanup successful)");
+}
+
 int main(int argc, char **argv) {
     GtkApplication *app = gtk_application_new("com.samuelf09.passwdmngr", G_APPLICATION_DEFAULT_FLAGS);
     g_signal_connect(app, "activate", G_CALLBACK(on_activate), NULL);
+    g_signal_connect(app, "shutdown", G_CALLBACK(on_shutdown), NULL);
     int status = g_application_run(G_APPLICATION(app), argc, argv);
     g_object_unref(app);
 

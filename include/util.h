@@ -19,6 +19,7 @@ enum ErrorType {
 };
 
 enum LogLevel {
+    DEBUG,
     INFO,
     WARN,
     ERROR,
@@ -39,3 +40,5 @@ void util_fatal_d(const char *msg);
 void util_nonfatal_d(const char *msg);
 void util_warn_d(const char *msg);
 bool util_check_ptr(void *ptr, const char *msg);
+
+void wipe_mem(void *mem, size_t bytes);

@@ -9,7 +9,7 @@ extern struct Account *accounts;
 extern struct PasswdEntry *entries;
 
 extern char *tmp_passwd;
-extern uint8_t aes_key[];
+extern uint8_t aes_key[32];
 extern bool key_set; // whether key has been loaded yet; used to verify key is valid before attempting to use it
 
 extern char *username;
@@ -59,3 +59,5 @@ PasswdEntry *storage_get_entry(int id);
 bool add_entry(PasswdEntry *entry);
 bool delete_entry(int id);
 bool update_entry(int id, PasswdEntry *new_entry);
+
+void wipe_passwd_entries();

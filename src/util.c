@@ -1,4 +1,4 @@
-#include <sys/stat.h>
+#include <string.h>
 #include "util.h"
 #include "main.h"
 
@@ -62,6 +62,11 @@ int dir_exists(const char *path) {
 }
 
 void util_log(LogLevel level, const char *fmt, ...) {
+
+#ifndef DEBUGMSG
+    if (level == DEBUG) return;
+#endif
+
     va_list args;
     va_start(args, fmt);
 
@@ -69,7 +74,8 @@ void util_log(LogLevel level, const char *fmt, ...) {
 
     char *prefix = NULL;
 
-    if (level == INFO)       prefix = "[passwdmngr/INFO]: ";
+    if (level == DEBUG)      prefix = "[passwdmngr/DEBUG]: ";
+    else if (level == INFO)  prefix = "[passwdmngr/INFO]: ";
     else if (level == WARN)  prefix = "[passwdmngr/WARNING]: ";
     else if (level == ERROR) prefix = "[passwdmngr/ERROR]: ";
     else                     prefix = "[passwdmngr/FATAL ERROR]: ";
@@ -164,4 +170,14 @@ bool util_check_ptr(void *ptr, const char *msg) {
         return false;
     }
     return true;
+}
+
+void wipe_mem(void *mem, size_t bytes) {
+    memset(mem, 0, bytes);
+
+#if defined(_MSC_VER)
+    _ReadWriteBarrier();
+#else
+    __asm__ __volatile__("" : : "r"(mem) : "memory");
+#endif
 }

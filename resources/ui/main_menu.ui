@@ -11,10 +11,18 @@
           <attribute name="label">Import</attribute>
           <attribute name="action">app.import</attribute>
         </item>
+        <item>
+          <attribute name="label">View log</attribute>
+          <attribute name="action">app.openlog</attribute>
+        </item>
+        <item>
+          <attribute name="label">Clear log</attribute>
+          <attribute name="action">app.clearlog</attribute>
+        </item>
       </section>
     </submenu>
 
-    <submenu>
+    <!-- <submenu>
       <attribute name="label">Edit</attribute>
       <section>
         <item>
@@ -22,7 +30,7 @@
           <attribute name="action">app.preferences</attribute>
         </item>
       </section>
-    </submenu>
+    </submenu> -->
 
     <submenu>
       <attribute name="label">Account</attribute>

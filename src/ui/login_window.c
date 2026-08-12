@@ -18,9 +18,10 @@ static void on_login_clicked(GtkButton *button, LoginWindow *self) {
         tmp_passwd = strdup(passwd);
 
         MainWindow *mainwin = g_object_new(MAIN_WINDOW_TYPE, NULL);
+        register_actions(mainwin);
         gtk_window_set_child(GTK_WINDOW(root_window), GTK_WIDGET(mainwin));
 
-        util_log(INFO, "Login successful");
+        util_log(INFO, "User %s: Login successful", uname);
     } else {
         util_nonfatal_d("Invalid username or password");
     }
