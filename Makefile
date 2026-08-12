@@ -28,7 +28,7 @@ ifeq ($(OS),Windows_NT)
 	WIN_PREFIX := $(shell cygpath -m $(MSYSTEM_PREFIX))
 
 	CFLAGS += -I$(WIN_PREFIX)/include
-	LDLIBS += -L$(WIN_PREFIX)/lib -lsodium -lcrypto -lssl
+	LDLIBS += -L$(WIN_PREFIX)/lib
 else
 	UNAME_S := $(shell uname -s)
 	ifeq ($(UNAME_S),Darwin)
@@ -37,7 +37,7 @@ else
 		HOMEBREW_PREFIX := $(shell brew --prefix)
 
     	CFLAGS += -I$(HOMEBREW_PREFIX)/include
-    	LDLIBS += -L$(HOMEBREW_PREFIX)/lib -lsodium
+    	LDLIBS += -L$(HOMEBREW_PREFIX)/lib
 	else ifeq ($(UNAME_S),Linux)
 #		linux logic if necessary
 	endif
