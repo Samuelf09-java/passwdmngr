@@ -24,10 +24,20 @@ endif
 # Set variables based on platform (mainly for compiling on github runners)
 ifeq ($(OS),Windows_NT)
 	TARGET := passwdmngr.exe
+
+	WIN_PREFIX := $(shell cygpath -m $(MSYSTEM_PREFIX))
+
+	CFLAGS += -I$(WIN_PREFIX)/include
+	LDLIBS += -L$(WIN_PREFIX)/lib -lsodium -lcrypto -lssl
 else
 	UNAME_S := $(shell uname -s)
 	ifeq ($(UNAME_S),Darwin)
 		CC := clang
+
+		HOMEBREW_PREFIX := $(shell brew --prefix)
+
+    	CFLAGS += -I$(HOMEBREW_PREFIX)/include
+    	LDLIBS += -L$(HOMEBREW_PREFIX)/lib -lsodium
 	else ifeq ($(UNAME_S),Linux)
 #		linux logic if necessary
 	endif

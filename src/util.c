@@ -143,7 +143,7 @@ void util_error_dialog(GtkWindow *parent, const char *msg, ErrorType error_type,
         return;
     }
 
-    GtkAlertDialog *dialog = gtk_alert_dialog_new(error_msg);
+    GtkAlertDialog *dialog = gtk_alert_dialog_new("%s", error_msg);
 
     const char *buttons[] = { "Close", NULL };
     gtk_alert_dialog_set_buttons(dialog, buttons);
