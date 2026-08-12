@@ -110,7 +110,7 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: |
           make clean
-          make build-macos
+          make
 
       - name: Create .app skeleton
         if: matrix.os == 'macos-latest'
@@ -213,7 +213,7 @@ jobs:
         shell: msys2 {0}
         run: |
           make clean
-          make build-windows
+          make
           mkdir -p dist/
           cp passwdmngr.exe dist/
 
