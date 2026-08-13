@@ -329,7 +329,7 @@ jobs:
         run: |
           choco install wixtoolset --yes
           copy .github/workflows/installer-data/windows/installer.wxs .
-          candle.exe installer.wxs dist-components.wxs -dAppDir=dist -dVersion=${{ env.VERSION }}
+          candle.exe installer.wxs dist-components.wxs -dAppDir=dist -dVersion="${{ env.VERSION }}""
           light.exe installer.wixobj dist-components.wixobj -ext WixUIExtension -o passwdmngr-${{ env.VERSION }}_x86-64.msi
 
       - name: Upload MSI
