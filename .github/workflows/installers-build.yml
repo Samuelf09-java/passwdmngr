@@ -113,7 +113,8 @@ jobs:
             --depends libgtk-4-1 \
             --depends libsodium23 \
             --depends libjson-glib-1.0-0 \
-            --prefix=/
+            --prefix=/ \
+            usr/
 
           ~/.local/share/gem/ruby/*/bin/fpm \
             -s dir -t rpm -n passwdmngr -v ${{ env.VERSION }} \
@@ -121,7 +122,8 @@ jobs:
             --depends gtk4 \
             --depends libsodium \
             --depends json-glib \
-            --prefix=/
+            --prefix=/ \
+            usr/
 
           mv *.deb passwdmngr-${{ env.VERSION }}_x86-64.deb
           mv *.rpm passwdmngr-${{ env.VERSION }}_x86-64.rpm
