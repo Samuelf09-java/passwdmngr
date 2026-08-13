@@ -2,6 +2,14 @@ name: Build Installers
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version number"
+        required: true
+        default: "dev"
+  push:
+    tags:
+      - "v*"
 
 jobs:
   build:
@@ -18,6 +26,26 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Validate version format
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            RAW_VERSION="${{ github.event.inputs.version }}"
+          else
+            RAW_VERSION="${{ github.ref_name }}"
+            RAW_VERSION="${RAW_VERSION#v}"
+          fi
+
+          echo "Raw version: $RAW_VERSION"
+
+          if [[ "$RAW_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            CLEAN_VERSION="$RAW_VERSION"
+          else
+            echo "Invalid version '$RAW_VERSION'. Defaulting to 0.0.0"
+            CLEAN_VERSION="0.0.0"
+          fi
+
+          echo "VERSION=$CLEAN_VERSION" >> $GITHUB_ENV
 
       # LINUX (.deb + .rpm)
 
@@ -64,30 +92,33 @@ jobs:
       - name: Package Linux installers (.deb + .rpm)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          mkdir -p pkg/usr/bin
-          mkdir -p pkg/usr/share/applications
-          mkdir -p pkg/usr/share/icons/hicolor/128x128/apps
-          mkdir -p pkg/usr/share/passwdmngr
+          mkdir -p usr/bin
+          mkdir -p usr/share/applications
+          mkdir -p usr/share/icons/hicolor/128x128/apps
+          mkdir -p usr/share/passwdmngr
 
-          cp passwdmngr pkg/usr/bin/passwdmngr
-          cp resources/icons/hicolor/128x128/apps/logo.png pkg/usr/share/icons/hicolor/128x128/apps/passwdmngr.png
-          cp .github/workflows/installer-data/linux/com.samuelf09.passwdmngr.desktop pkg/usr/share/applications/passwdmngr.desktop
+          cp passwdmngr usr/bin/passwdmngr
+          cp resources/icons/hicolor/128x128/apps/logo.png usr/share/icons/hicolor/128x128/apps/passwdmngr.png
+          cp .github/workflows/installer-data/linux/com.samuelf09.passwdmngr.desktop usr/share/applications/passwdmngr.desktop
 
           ~/.local/share/gem/ruby/*/bin/fpm \
-            -s dir -t deb -n passwdmngr -v 1.0.0 \
+            -s dir -t deb -n passwdmngr -v ${{ env.VERSION }} \
             --description "A simple password manager" \
             --depends libgtk-4-1 \
             --depends libsodium23 \
             --depends libjson-glib-1.0-0 \
-            --prefix=/ pkg/
+            --prefix=/
 
           ~/.local/share/gem/ruby/*/bin/fpm \
-            -s dir -t rpm -n passwdmngr -v 1.0.0 \
+            -s dir -t rpm -n passwdmngr -v ${{ env.VERSION }} \
             --description "A simple password manager" \
             --depends gtk4 \
             --depends libsodium \
             --depends json-glib \
-            --prefix=/ pkg/
+            --prefix=/
+
+          mv *.deb passwdmngr-${{ env.VERSION }}_x86-64.deb
+          mv *.rpm passwdmngr-${{ env.VERSION }}_x86-64.rpm
 
       - name: Upload Linux installers
         if: matrix.os == 'ubuntu-latest'
@@ -136,7 +167,7 @@ jobs:
               <key>CFBundleIdentifier</key>
               <string>com.samuelf09.passwdmngr</string>
               <key>CFBundleVersion</key>
-              <string>1.0</string>
+              <string>${{ env.VERSION }}</string>
               <key>CFBundlePackageType</key>
               <string>APPL</string>
               <key>LSMinimumSystemVersion</key>
@@ -179,14 +210,14 @@ jobs:
         run: |
           hdiutil create -volname "Password Manager" \
             -srcfolder dist/PasswordManager.app \
-            -ov -format UDZO dist/passwdmngr.dmg
+            -ov -format UDZO dist/passwdmngr-${{ env.VERSION }}_arm64.dmg
 
       - name: Upload DMG
         if: matrix.os == 'macos-latest'
         uses: actions/upload-artifact@v4
         with:
           name: macos-dmg
-          path: dist/passwdmngr.dmg
+          path: dist/passwdmngr-${{ env.VERSION }}_arm64.dmg
 
       # WINDOWS (.msi)
 
@@ -290,15 +321,15 @@ jobs:
         run: |
           choco install wixtoolset --yes
           copy .github/workflows/installer-data/windows/installer.wxs .
-          candle.exe installer.wxs dist-components.wxs -dAppDir=dist
-          light.exe installer.wixobj dist-components.wixobj -ext WixUIExtension -o passwdmngr.msi
+          candle.exe installer.wxs dist-components.wxs -dAppDir=dist -dVersion=${{ env.VERSION }}
+          light.exe installer.wixobj dist-components.wixobj -ext WixUIExtension -o passwdmngr-${{ env.VERSION }}_x86-64.msi
 
       - name: Upload MSI
         if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
           name: windows-msi
-          path: passwdmngr.msi
+          path: passwdmngr-${{ env.VERSION }}_x86-64.msi
 
   # FINAL MERGE JOB
 
@@ -317,8 +348,8 @@ jobs:
           mkdir final
           cp installers/linux-installers/*.deb final/
           cp installers/linux-installers/*.rpm final/
-          cp installers/macos-dmg/passwdmngr.dmg final/
-          cp installers/windows-msi/passwdmngr.msi final/
+          cp installers/macos-dmg/*.dmg final/
+          cp installers/windows-msi/*.msi final/
 
       - name: Upload unified artifact
         uses: actions/upload-artifact@v4

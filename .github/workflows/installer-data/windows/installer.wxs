@@ -5,7 +5,7 @@
     Id="*"
     Name="Password Manager"
     Language="1033"
-    Version="1.0.0.0"
+    Version="$(var.Version).0"
     Manufacturer="Samuel Field"
     UpgradeCode="c2f7b4e1-6b9a-4c2e-9f1a-3a7d9c1e4b22">
 
