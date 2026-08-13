@@ -258,14 +258,6 @@ jobs:
 
       # WINDOWS (.msi)
 
-      - name: Cache MSYS2 packages
-        if: matrix.os == 'windows-latest'
-        uses: actions/cache@v4
-        with:
-          path: C:\msys64\var\cache\pacman\pkg
-          key: windows-${{ env.CACHE_KEY }}
-          restore-keys: windows-installers-
-
       - name: Install Windows build tools
         if: matrix.os == 'windows-latest'
         uses: msys2/setup-msys2@v2
@@ -283,6 +275,14 @@ jobs:
             mingw-w64-x86_64-libsodium
             mingw-w64-x86_64-openssl
             mingw-w64-x86_64-blueprint-compiler
+
+      - name: Cache MSYS2 packages
+        if: matrix.os == 'windows-latest'
+        uses: actions/cache@v4
+        with:
+          path: C:\msys64\var\cache\pacman\pkg
+          key: windows-${{ env.CACHE_KEY }}
+          restore-keys: windows-installers-
 
       - name: Build Windows executable
         if: matrix.os == 'windows-latest'
