@@ -50,3 +50,10 @@ jobs:
           export PATH="/usr/local/bin/blueprint-wrapper:$PATH"
           make clean
           make
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-binary
+          path: |
+            passwdmngr
