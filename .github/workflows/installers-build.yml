@@ -77,21 +77,10 @@ jobs:
           ninja -C build
           sudo ninja -C build install
 
-      # - name: Create wrapper for blueprint-compiler
-      #   if: matrix.os == 'ubuntu-latest'
-      #   run: |
-      #     sudo mkdir -p /usr/local/bin/blueprint-wrapper
-      #     sudo tee /usr/local/bin/blueprint-wrapper/blueprint-compiler > /dev/null << 'EOF'
-      #     #!/usr/bin/env bash
-      #     export PYTHONPATH=/usr/local/lib/python3/dist-packages:$PYTHONPATH
-      #     exec /usr/local/bin/blueprint-compiler "$@"
-      #     EOF
-      #     sudo chmod +x /usr/local/bin/blueprint-wrapper/blueprint-compiler
-
       - name: Build Linux executable
         if: matrix.os == 'ubuntu-latest'
-#         export PATH="/usr/local/bin/blueprint-wrapper:$PATH"
         run: |
+          export PYTHONPATH=/usr/local/lib/python3/dist-packages:$PYTHONPATH
           make clean
           make
 
