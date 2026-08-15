@@ -11,7 +11,8 @@ OBJ := $(patsubst src/%.c, build/%.o, $(SRC))
 BLUEPRINT ?= blueprint-compiler
 
 BLP := $(shell find resources/ui -name '*.blp')
-UI := $(patsubst resources/ui/%.blp, resources/generated/%.ui, $(BLP))
+UI = $(patsubst resources/ui/%.blp, resources/generated/%.ui, $(BLP))
+UI += $(shell find resources/ui -name '*.ui')
 
 TARGET ?= passwdmngr
 
