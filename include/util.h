@@ -33,6 +33,8 @@ char *util_get_app_dir();
 char *util_get_logfile();
 int dir_exists(const char *path);
 
+void util_assert(int cond, char *fail_msg);
+
 void util_log(LogLevel level, const char *fmt, ...);
 
 void util_error_dialog(GtkWindow *parent, const char *msg, ErrorType error_type, GtkApplication *app);

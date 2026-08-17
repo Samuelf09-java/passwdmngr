@@ -61,6 +61,13 @@ int dir_exists(const char *path) {
     return g_file_test(path, G_FILE_TEST_IS_DIR);
 }
 
+void util_assert(int cond, char *fail_msg) {
+    if (!cond) {
+        util_log(FATAL, "Assertion failed: %s", fail_msg);
+        exit(2); // failed assertion
+    }
+}
+
 void util_log(LogLevel level, const char *fmt, ...) {
 
 #ifndef DEBUGMSG
@@ -109,6 +116,8 @@ void util_log(LogLevel level, const char *fmt, ...) {
 }
 
 void util_error_dialog(GtkWindow *parent, const char *msg, ErrorType error_type, GtkApplication *app) {
+
+    util_assert(mode == GUI, "tried to call util_error_dialog while in cli mode");
 
     char *prefix = NULL;
 
