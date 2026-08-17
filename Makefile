@@ -79,7 +79,7 @@ clean:
 
 ifeq ($(UNAME_S),Linux)
 
-PREFIX ?= /usr/local
+PREFIX ?= /usr
 BINDIR := $(PREFIX)/bin
 SHAREDIR := $(PREFIX)/share
 APPDIR := $(SHAREDIR)/passwdmngr
