@@ -708,6 +708,7 @@ bool delete_entry(int id) {
         util_log(ERROR, "realloc failed for new passwdentry array");
         return false;
     }
+    entries = new_entries;
 
     md->num_entries = num_entries;
     md->last_modified = time(NULL);

@@ -32,6 +32,7 @@ typedef enum LogLevel LogLevel;
 char *util_get_app_dir();
 char *util_get_logfile();
 int dir_exists(const char *path);
+bool delete_recursive(const char *path, GError **error);
 
 void util_assert(int cond, char *fail_msg);
 

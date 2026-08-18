@@ -112,6 +112,8 @@ static void on_shutdown(GApplication *app, gpointer user_data) {
         username = NULL;
     }
 
+    free_accounts();
+
     util_log(INFO, "App shut down (cleanup successful)");
 }
 
@@ -128,7 +130,7 @@ static int run_cli(int argc, char **argv) {
     }
 
     printf("passwdmngr running in cli mode!\n");
-    
+
     on_shutdown(NULL, NULL);
     exit(0);
 }

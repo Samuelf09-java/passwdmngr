@@ -61,6 +61,62 @@ int dir_exists(const char *path) {
     return g_file_test(path, G_FILE_TEST_IS_DIR);
 }
 
+bool delete_recursive(const char *path, GError **error) {
+    GFile *dir = g_file_new_for_path(path);
+
+    // Check if directory exists
+    if (!g_file_query_exists(dir, NULL)) {
+        g_object_unref(dir);
+        return TRUE;
+    }
+
+    // Enumerate children
+    GFileEnumerator *enumerator = g_file_enumerate_children(dir, G_FILE_ATTRIBUTE_STANDARD_NAME "," G_FILE_ATTRIBUTE_STANDARD_TYPE, G_FILE_QUERY_INFO_NONE, NULL, error);
+
+    if (!enumerator) {
+        g_object_unref(dir);
+        return false;
+    }
+
+    GFileInfo *info;
+    while ((info = g_file_enumerator_next_file(enumerator, NULL, error))) {
+        const char *name = g_file_info_get_name(info);
+        GFileType type = g_file_info_get_file_type(info);
+
+        GFile *child = g_file_get_child(dir, name);
+
+        if (type == G_FILE_TYPE_DIRECTORY) {
+            // Recursively delete subdirectories
+            if (!delete_recursive(g_file_get_path(child), error)) {
+                g_object_unref(child);
+                g_object_unref(info);
+                g_object_unref(enumerator);
+                g_object_unref(dir);
+                return false;
+            }
+        }
+
+        // Delete file or now-empty directory
+        if (!g_file_delete(child, NULL, error)) {
+            g_object_unref(child);
+            g_object_unref(info);
+            g_object_unref(enumerator);
+            g_object_unref(dir);
+            return false;
+        }
+
+        g_object_unref(child);
+        g_object_unref(info);
+    }
+
+    g_object_unref(enumerator);
+
+    // Delete the directory itself
+    bool ok = g_file_delete(dir, NULL, error);
+    g_object_unref(dir);
+    return ok;
+}
+
 void util_assert(int cond, char *fail_msg) {
     if (!cond) {
         util_log(FATAL, "Assertion failed: %s", fail_msg);

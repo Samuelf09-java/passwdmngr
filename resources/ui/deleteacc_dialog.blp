@@ -1,0 +1,39 @@
+using Gtk 4.0;
+
+Window dialog {
+    modal: true;
+    title: "Delete Account";
+    default-width: 350;
+
+    Box {
+        orientation: vertical;
+        spacing: 12;
+        margin-top: 12;
+        margin-bottom: 12;
+        margin-start: 12;
+        margin-end: 12;
+
+        Label {
+            label: "Enter your login information to delete your account";
+            wrap: true;
+        }
+
+        Entry user_entry {
+            placeholder-text: "Enter username…";
+        }
+
+        Entry pass_entry {
+            placeholder-text: "Enter password…";
+            visibility: false;
+        }
+
+        Box {
+            orientation: horizontal;
+            halign: center;
+            spacing: 12;
+
+            Button cancel_btn { label: "Cancel"; }
+            Button delete_btn { label: "Delete"; }
+        }
+    }
+}

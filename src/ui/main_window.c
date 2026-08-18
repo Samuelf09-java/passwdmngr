@@ -1,14 +1,22 @@
 #include <string.h>
 #include "ui/main_window.h"
 #include "ui/login_window.h"
+#include "crypto.h"
 #include "util.h"
 #include "storage.h"
 #include "main.h"
+
+typedef struct _DeleteAccDialogData {
+    GtkWidget *dialog;
+    GtkWidget *user_entry;
+    GtkWidget *pass_entry;
+} DeleteAccDialogData;
 
 G_DEFINE_FINAL_TYPE(MainWindow, main_window, GTK_TYPE_BOX)
 
 static void on_edit_save(EntryEditBox *edit_box, MainWindow *self);
 static void on_edit_cancel(EntryEditBox *edit_box, MainWindow *self);
+static void logout_cb(GSimpleAction *action, GVariant *parameter, gpointer user_data);
 
 static void reload_sidebar(MainWindow *self) {
     gtk_list_box_remove_all(GTK_LIST_BOX(self->entries_listbox));
@@ -310,6 +318,118 @@ static void on_clearlog_response(GObject *source, GAsyncResult *result, gpointer
     util_nonfatal_d("Failed to clear logfile: util returned null file pointer");
 }
 
+static void on_cancel_deleteacc_clicked(GtkButton *button, gpointer user_data) {
+    X(button);
+
+    util_log(DEBUG, "Account deletion canceled (stage two)");
+    gtk_window_destroy(GTK_WINDOW(((DeleteAccDialogData *) user_data)->dialog));
+    g_free(user_data);
+}
+
+static void on_confirm_deleteacc_clicked(GtkButton *button, gpointer user_data) {
+    X(button);
+
+    DeleteAccDialogData *data = (DeleteAccDialogData *)user_data;
+    
+    const char *conf_username = gtk_editable_get_text(GTK_EDITABLE(data->user_entry));
+    const char *conf_password = gtk_editable_get_text(GTK_EDITABLE(data->pass_entry));
+
+    gtk_window_destroy(GTK_WINDOW(data->dialog));
+    g_free(data);
+
+    if (strcmp(conf_username, username)) { // user is attempting to delete another user's account
+        util_nonfatal_d("Wrong username (you can only delete your own account through this menu - nice try!)");
+        return;
+    }
+
+    if (verify_account(conf_username, conf_password)) {
+
+        util_log(DEBUG, "Manually triggering user logout");
+        logout_cb(NULL, NULL, MAIN_WINDOW(gtk_window_get_child(root_window)));
+
+        // delete data
+        if (!delete_recursive(storage_get_user_dir((char *) conf_username), NULL))
+            util_nonfatal_d("Failed to delete user dir");
+
+        // remove entry from accounts.json
+        Account *acc = NULL;
+        char *uname_hash = hash_uname(conf_username, strlen(conf_username));
+        int index = -1;
+        for (int i = 0; i < num_accounts; i++) {
+            if (!strcmp(accounts[i].uname_hash, uname_hash)) {
+                acc = accounts+i;
+                index = i;
+                break;
+            }
+        }
+        
+        if (!acc) {
+            util_fatal_d("Could not find user account to delete");
+            return;
+        }
+
+        if (acc->uname_hash) {
+            wipe_mem(acc->uname_hash, strlen(acc->uname_hash));
+            free(acc->uname_hash);
+        }
+        
+        if (acc->passwd_hash) {
+            wipe_mem(acc->passwd_hash, strlen(acc->passwd_hash));
+            free(acc->passwd_hash);
+        }
+
+        for (int j = index; j < num_accounts - 1; j++) {
+            accounts[j] = accounts[j + 1];
+        }
+
+        num_accounts--;
+        Account *new_accounts = realloc(accounts, sizeof(Account) * num_accounts);
+        if (!new_accounts) {
+            util_log(ERROR, "realloc failed for new accounts array");
+            return;
+        }
+        accounts = new_accounts;
+
+        save_accounts();
+
+        util_log(INFO, "Deleted account with username '%s'", conf_username);
+        
+    } else util_nonfatal_d("Failed to delete account: invalid login information");
+}
+
+static void on_deleteacc_confirm_response(GObject *source, GAsyncResult *result, gpointer user_data) {
+    X(source);
+
+    GtkAlertDialog *dialog1 = GTK_ALERT_DIALOG(user_data);
+    int response = gtk_alert_dialog_choose_finish(dialog1, result, NULL);
+    g_object_unref(dialog1);
+
+    if (response != 1) { // cancel
+        util_log(DEBUG, "Delete account canceled");
+        return;
+    }
+
+    GtkBuilder *builder = gtk_builder_new_from_resource("/com/samuelf09/passwdmngr/deleteacc_dialog.ui");
+
+    GtkWidget *dialog     = GTK_WIDGET(gtk_builder_get_object(builder, "dialog"));
+    GtkWidget *user_entry = GTK_WIDGET(gtk_builder_get_object(builder, "user_entry"));
+    GtkWidget *pass_entry = GTK_WIDGET(gtk_builder_get_object(builder, "pass_entry"));
+    GtkWidget *cancel_btn = GTK_WIDGET(gtk_builder_get_object(builder, "cancel_btn"));
+    GtkWidget *delete_btn = GTK_WIDGET(gtk_builder_get_object(builder, "delete_btn"));
+
+    gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(root_window));
+
+    DeleteAccDialogData *data = g_new0(DeleteAccDialogData, 1);
+    data->dialog = dialog;
+    data->user_entry = user_entry;
+    data->pass_entry = pass_entry;
+
+    g_signal_connect(cancel_btn, "clicked", G_CALLBACK(on_cancel_deleteacc_clicked), data);
+    g_signal_connect(delete_btn, "clicked", G_CALLBACK(on_confirm_deleteacc_clicked), data);
+
+    gtk_window_present(GTK_WINDOW(dialog));
+}
+
 static void export_cb(GSimpleAction *action, GVariant *parameter, gpointer user_data) {
     X(action);
     X(parameter);
@@ -415,6 +535,16 @@ static void deleteacc_cb(GSimpleAction *action, GVariant *parameter, gpointer us
     X(parameter);
     X(user_data);
     util_log(DEBUG, "Delete account triggered");
+
+    GtkAlertDialog *dialog = gtk_alert_dialog_new(
+        "Are you sure you want to delete your account?\n"
+        "This operation is permanent and cannot be undone."
+    );
+
+    const char *buttons[] = { "Cancel", "Delete", NULL };
+    gtk_alert_dialog_set_buttons(dialog, buttons);
+
+    gtk_alert_dialog_choose(dialog, root_window, NULL, on_deleteacc_confirm_response, dialog);
 }
 
 void register_actions(MainWindow *self) {
