@@ -45,3 +45,4 @@ void util_warn_d(const char *msg);
 bool util_check_ptr(void *ptr, const char *msg);
 
 void wipe_mem(void *mem, size_t bytes);
+void *ec_malloc(size_t size);

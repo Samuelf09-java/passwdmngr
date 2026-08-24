@@ -67,7 +67,7 @@ char *hash_uname(const char *uname, size_t len) {
 
     EVP_MD_CTX_free(ctx);
     
-    char *uname_hash = malloc(65);
+    char *uname_hash = ec_malloc(65);
     if (!uname_hash) return NULL;
     for (int i = 0; i < 32; i++)
         sprintf(&uname_hash[i*2], "%02x", uname_hash_bin[i]);

@@ -133,7 +133,7 @@ static void on_edit_save(EntryEditBox *edit_box, MainWindow *self) {
     gtk_text_buffer_get_bounds(buffer, &start, &end);
     char *notes = gtk_text_buffer_get_text(buffer, &start, &end, FALSE);
 
-    PasswdEntry *new_entry = malloc(sizeof(PasswdEntry));
+    PasswdEntry *new_entry = ec_malloc(sizeof(PasswdEntry));
     if (!new_entry) {
         util_nonfatal_d("Failed to allocate memory for temporary new PasswdEntry");
         free(service);
@@ -265,9 +265,9 @@ static void on_entry_selected(GtkListBox *box, GtkListBoxRow *row, MainWindow *s
     g_signal_connect(view_box, "delete", G_CALLBACK(on_view_delete), self);
 
     char *service = e->service;
-    char *username = malloc(strlen("Username: ") + strlen(e->username) + 1);
+    char *username = ec_malloc(strlen("Username: ") + strlen(e->username) + 1);
     sprintf(username, "Username: %s", e->username);
-    char *password = malloc(strlen("Password: ") + strlen(e->password) + 1);
+    char *password = ec_malloc(strlen("Password: ") + strlen(e->password) + 1);
     sprintf(password, "Password: %s", e->password);
     char *notes = e->notes;
 
@@ -453,7 +453,7 @@ static void openlog_cb(GSimpleAction *action, GVariant *parameter, gpointer user
     GError *err = NULL;
     char *uri = g_filename_to_uri(util_get_logfile(), NULL, &err);
     if (!uri) {
-        char *msg = malloc(strlen("Failed to convert filename to URI: ") + strlen(err->message) + 1);
+        char *msg = ec_malloc(strlen("Failed to convert filename to URI: ") + strlen(err->message) + 1);
         sprintf(msg, "Failed to convert filename to URI: %s", err->message);
         util_nonfatal_d(msg);
         g_error_free(err);
@@ -461,7 +461,7 @@ static void openlog_cb(GSimpleAction *action, GVariant *parameter, gpointer user
     }
 
     if (!g_app_info_launch_default_for_uri(uri, NULL, &err)) {
-        char *msg = malloc(strlen("Failed to open file: ") + strlen(err->message) + 1);
+        char *msg = ec_malloc(strlen("Failed to open file: ") + strlen(err->message) + 1);
         sprintf(msg, "Failed to open file: %s", err->message);
         util_nonfatal_d(msg);
         g_error_free(err);
@@ -623,7 +623,7 @@ static void main_window_init(MainWindow *self) {
 
     g_object_unref(builder);
 
-    char *title = malloc(strlen("Password Manager - ") + strlen(username) + 1);
+    char *title = ec_malloc(strlen("Password Manager - ") + strlen(username) + 1);
     if (!title) util_log(ERROR, "Window title malloc failed");
     sprintf(title, "Password Manager - %s", username);
     gtk_window_set_title(GTK_WINDOW(root_window), title);

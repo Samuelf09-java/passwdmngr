@@ -48,7 +48,7 @@ bool load_accounts() {
     }
 
     num_accounts = json_array_get_length(accounts_array);
-    accounts = malloc(sizeof(Account) * num_accounts);
+    accounts = ec_malloc(sizeof(Account) * num_accounts);
 
     for (int i = 0; i < num_accounts; i++) {
         JsonObject *entry = json_array_get_object_element(accounts_array, i);
@@ -141,7 +141,7 @@ bool create_new_account(char *uname, char *passwd) {
         }
     }
 
-    char *new_passwd_hash = malloc(crypto_pwhash_STRBYTES);
+    char *new_passwd_hash = ec_malloc(crypto_pwhash_STRBYTES);
 
     if (hash_pw(passwd, new_passwd_hash, crypto_pwhash_STRBYTES) < 0) return false;
 
@@ -169,9 +169,9 @@ bool create_new_account(char *uname, char *passwd) {
     }
     g_mkdir_with_parents(user_dir, 0755);
     
-    char *meta_path = malloc(strlen(user_dir) + strlen("metadata.json") + 1);
+    char *meta_path = ec_malloc(strlen(user_dir) + strlen("metadata.json") + 1);
     sprintf(meta_path, "%smetadata.json", user_dir);
-    char *vault_path = malloc(strlen(user_dir) + strlen("vault.bin") + 1);
+    char *vault_path = ec_malloc(strlen(user_dir) + strlen("vault.bin") + 1);
     sprintf(vault_path, "%svault.bin", user_dir);
     free(user_dir);
 
@@ -182,7 +182,7 @@ bool create_new_account(char *uname, char *passwd) {
     }
     fclose(fp);
 
-    Metadata *md = malloc(sizeof(Metadata));
+    Metadata *md = ec_malloc(sizeof(Metadata));
     if (!md) {
         util_log(ERROR, "Metadata malloc failed");
         return false;
@@ -223,7 +223,7 @@ static char *storage_get_user_dir_with_hash(char *uname_hash) {
     }
 
     int path_len = strlen(app_dir) + strlen("users") + strlen(uname_hash) + 4;
-    char *path = malloc(path_len);
+    char *path = ec_malloc(path_len);
     snprintf(path, path_len, "%s%cusers%c%s%c", app_dir, PATH_SEPARATOR, PATH_SEPARATOR, uname_hash, PATH_SEPARATOR);
     free(app_dir);
     return path;
@@ -251,7 +251,7 @@ Metadata *storage_read_user_metadata() {
         return NULL;
     }
     
-    char *meta_path = malloc(strlen(user_dir) + strlen("metadata.json") + 1);
+    char *meta_path = ec_malloc(strlen(user_dir) + strlen("metadata.json") + 1);
     sprintf(meta_path, "%smetadata.json", user_dir);
 
     JsonParser *parser = json_parser_new();
@@ -265,7 +265,7 @@ Metadata *storage_read_user_metadata() {
     JsonNode *root = json_parser_get_root(parser);
     JsonObject *obj = json_node_get_object(root);
 
-    Metadata *metadata = malloc(sizeof(Metadata));
+    Metadata *metadata = ec_malloc(sizeof(Metadata));
     if (!metadata) {
         util_log(ERROR, "Failed to allocate metadata struct");
         g_object_unref(parser);
@@ -326,7 +326,7 @@ bool storage_read_user_vault(Metadata *md) {
         return false;
     }
 
-    char *vault_path = malloc(strlen(user_dir) + strlen("vault.bin") + 1);
+    char *vault_path = ec_malloc(strlen(user_dir) + strlen("vault.bin") + 1);
     sprintf(vault_path, "%svault.bin", user_dir);
     free(user_dir);
     
@@ -341,7 +341,7 @@ bool storage_read_user_vault(Metadata *md) {
     long fsize = ftell(fp);
     fseek(fp, 0, SEEK_SET);
 
-    uint8_t *vault_buf = malloc(fsize);
+    uint8_t *vault_buf = ec_malloc(fsize);
     fread(vault_buf, 1, fsize, fp);
     fclose(fp);
     free(vault_path);
@@ -381,7 +381,7 @@ bool storage_read_user_vault(Metadata *md) {
         tmp_passwd = NULL;
     }
 
-    uint8_t *plaintext = malloc(ciphertext_len);
+    uint8_t *plaintext = ec_malloc(ciphertext_len);
 
     int plaintext_len = aes_gcm_decrypt(
         ciphertext, ciphertext_len,
@@ -416,7 +416,7 @@ bool storage_read_user_vault(Metadata *md) {
         return false;
     }
     
-    entries = malloc(sizeof(PasswdEntry) * num_entries);
+    entries = ec_malloc(sizeof(PasswdEntry) * num_entries);
     if (!entries) {
         util_log(ERROR, "malloc failed for passwdentry array");
         return false;
@@ -451,7 +451,7 @@ bool storage_write_metadata(Metadata *data) {
         return NULL;
     }
     
-    char *meta_path = malloc(strlen(user_dir) + strlen("metadata.json") + 1);
+    char *meta_path = ec_malloc(strlen(user_dir) + strlen("metadata.json") + 1);
     sprintf(meta_path, "%smetadata.json", user_dir);
 
     JsonBuilder *builder = json_builder_new();
@@ -503,7 +503,7 @@ bool storage_write_user_vault(Metadata *md) {
         return false;
     }
 
-    char *vault_path = malloc(strlen(user_dir) + strlen("vault.bin") + 1);
+    char *vault_path = ec_malloc(strlen(user_dir) + strlen("vault.bin") + 1);
     sprintf(vault_path, "%svault.bin", user_dir);
     free(user_dir);
 
@@ -571,7 +571,7 @@ bool storage_write_user_vault(Metadata *md) {
     randombytes_buf(nonce, sizeof(nonce));
 
     int plaintext_len = strlen(json_data);
-    uint8_t *ciphertext = malloc(plaintext_len + 16);
+    uint8_t *ciphertext = ec_malloc(plaintext_len + 16);
     uint8_t tag[16];
 
     int ciphertext_len = aes_gcm_encrypt(

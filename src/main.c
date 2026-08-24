@@ -31,11 +31,11 @@ static bool app_init() {
 
     if (!dir_exists(root)) g_mkdir_with_parents(root, 0755);
 
-    char *users_dir = malloc(strlen(root) + strlen("users") + 1);
+    char *users_dir = ec_malloc(strlen(root) + strlen("users") + 1);
     sprintf(users_dir, "%susers", root);
     if (!dir_exists(users_dir)) g_mkdir_with_parents(users_dir, 0755);
 
-    accounts_path = malloc(strlen(root) + strlen("accounts.json") + 1);
+    accounts_path = ec_malloc(strlen(root) + strlen("accounts.json") + 1);
     sprintf(accounts_path, "%saccounts.json", root);
 
     gchar *contents = NULL;

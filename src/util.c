@@ -14,7 +14,7 @@ char *util_get_app_dir() {
 
 #if defined(__linux__)
     if (!home) return NULL;
-    root = malloc(strlen(home) + strlen("/.local/share/passwdmngr/") + 1);
+    root = ec_malloc(strlen(home) + strlen("/.local/share/passwdmngr/") + 1);
     if (!root) {
         util_log(ERROR, "Failed to allocate memory for root path");
         return NULL;
@@ -24,7 +24,7 @@ char *util_get_app_dir() {
 
 #elif defined(__APPLE__)
     if (!home) return NULL;
-    root = malloc(strlen(home) + strlen("/Library/Application Support/passwdmngr/") + 1);
+    root = ec_malloc(strlen(home) + strlen("/Library/Application Support/passwdmngr/") + 1);
     if (!root) {
         util_log(ERROR, "Failed to allocate memory for root path");
         return NULL;
@@ -35,7 +35,7 @@ char *util_get_app_dir() {
 #elif defined(_WIN32)
     const char *local = getenv("LOCALAPPDATA");
     if (!local) return NULL;
-    root = malloc(strlen(local) + strlen("\\passwdmngr\\") + 1);
+    root = ec_malloc(strlen(local) + strlen("\\passwdmngr\\") + 1);
     if (!root) {
         util_log(ERROR, "Failed to allocate memory for root path");
         return NULL;
@@ -149,8 +149,8 @@ void util_log(LogLevel level, const char *fmt, ...) {
 
     strftime(time_buf, sizeof(time_buf), "%m-%d-%Y %H:%M:%S", log_time);
 
-    char *log_msg    = malloc(strlen(msg) + strlen(prefix) + sizeof(time_buf) + 4);
-    char *stdout_msg = malloc(strlen(msg) + strlen(prefix) + 1);
+    char *log_msg    = ec_malloc(strlen(msg) + strlen(prefix) + sizeof(time_buf) + 4);
+    char *stdout_msg = ec_malloc(strlen(msg) + strlen(prefix) + 1);
     sprintf(log_msg, "(%s) %s%s", time_buf, prefix, msg);
     sprintf(stdout_msg,   "%s%s",           prefix, msg);
     g_free(msg);
@@ -182,7 +182,7 @@ void util_error_dialog(GtkWindow *parent, const char *msg, ErrorType error_type,
     else                               prefix = "[passwdmngr/FATAL ERROR]: ";
 
     size_t msg_len = strlen(msg) + strlen(prefix) + 1;
-    char *error_msg = malloc(msg_len);
+    char *error_msg = ec_malloc(msg_len);
     sprintf(error_msg, "%s%s", prefix, msg);
 
     LogLevel level;
@@ -245,4 +245,10 @@ void wipe_mem(void *mem, size_t bytes) {
 #else
     __asm__ __volatile__("" : : "r"(mem) : "memory");
 #endif
+}
+
+void *ec_malloc(size_t size) {
+    void *ptr = malloc(size);
+    util_assert(ptr != NULL, "malloc returned NULL pointer");
+    return ptr;
 }
