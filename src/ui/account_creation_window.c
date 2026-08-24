@@ -26,7 +26,7 @@ static void on_create_account_clicked(GtkButton *button, AccountCreationWindow *
 
         bool res = create_new_account(uname, passwd);
         if (!res) {
-            util_nonfatal_d("Could not create account; check stderr for more information");
+            util_nonfatal_d("Could not create account; check passwdmngr.log for more information");
             free(uname);
             free(passwd);
             free(confirm_passwd);

@@ -1,0 +1,40 @@
+using Gtk 4.0;
+
+Window dialog {
+    modal: true;
+    title: "Change Password";
+    default-width: 350;
+
+    Box {
+        orientation: vertical;
+        spacing: 12;
+        margin-top: 12;
+        margin-bottom: 12;
+        margin-start: 12;
+        margin-end: 12;
+
+        Entry curr_pass_entry {
+            placeholder-text: "Enter current password…";
+            visibility: false;
+        }
+
+        Entry new_pass_entry {
+            placeholder-text: "Enter new password…";
+            visibility: false;
+        }
+
+        Entry conf_new_pass_entry {
+            placeholder-text: "Confirm new password…";
+            visibility: false;
+        }
+
+        Box {
+            orientation: horizontal;
+            halign: center;
+            spacing: 12;
+
+            Button cancel_btn { label: "Cancel"; }
+            Button conf_btn { label: "Confirm"; }
+        }
+    }
+}

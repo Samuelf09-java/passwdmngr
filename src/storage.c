@@ -215,6 +215,96 @@ bool create_new_account(char *uname, char *passwd) {
     return true;
 }
 
+bool storage_delete_account(char *uname) {
+
+    // delete data
+    if (!delete_recursive(storage_get_user_dir(uname), NULL)) {
+        util_log(ERROR, "Failed to delete user dir");
+        return false;
+    }
+
+    // remove entry from accounts.json
+    Account *acc = NULL;
+    char *uname_hash = hash_uname(uname, strlen(uname));
+    int index = -1;
+    for (int i = 0; i < num_accounts; i++) {
+        if (!strcmp(accounts[i].uname_hash, uname_hash)) {
+            acc = accounts+i;
+            index = i;
+            break;
+        }
+    }
+    
+    if (!acc) {
+        util_log(FATAL, "Could not find user account to delete");
+        return false;
+    }
+
+    if (acc->uname_hash) {
+        wipe_mem(acc->uname_hash, strlen(acc->uname_hash));
+        free(acc->uname_hash);
+    }
+    
+    if (acc->passwd_hash) {
+        wipe_mem(acc->passwd_hash, strlen(acc->passwd_hash));
+        free(acc->passwd_hash);
+    }
+
+    for (int j = index; j < num_accounts - 1; j++) {
+        accounts[j] = accounts[j + 1];
+    }
+
+    num_accounts--;
+    Account *new_accounts = realloc(accounts, sizeof(Account) * num_accounts);
+    if (!new_accounts) {
+        util_log(ERROR, "realloc failed for new accounts array");
+        return false;
+    }
+    accounts = new_accounts;
+
+    save_accounts();
+
+    return true;
+}
+
+// Expects account has already been verified before calling
+bool storage_change_passwd(char *uname, char *new_pass) {
+
+    Account *acc = NULL;
+    char *uname_hash = hash_uname(uname, strlen(uname));
+    for (int i = 0; i < num_accounts; i++) {
+        if (!strcmp(accounts[i].uname_hash, uname_hash)) {
+            acc = accounts+i;
+            break;
+        }
+    }
+
+    free(uname_hash);
+
+    if (!acc) {
+        util_log(FATAL, "Failed to find account with username %s in accounts array", uname);
+        return false;
+    }
+
+    char *new_passwd_hash = ec_malloc(crypto_pwhash_STRBYTES);
+    if (hash_pw(new_pass, new_passwd_hash, crypto_pwhash_STRBYTES) < 0) {
+        free(new_passwd_hash);
+        util_log(FATAL, "Failed to hash password");
+        return false;
+    }
+
+    free(acc->passwd_hash);
+    acc->passwd_hash = new_passwd_hash;
+
+    save_accounts();
+
+    key_set = false;
+    tmp_passwd = strdup(new_pass);
+    wipe_mem(aes_key, sizeof(aes_key));
+
+    return true;
+}
+
 static char *storage_get_user_dir_with_hash(char *uname_hash) {
     char *app_dir = util_get_app_dir();
     if (!util_check_ptr(app_dir, "Failed to get app dir")) {
@@ -440,6 +530,12 @@ bool storage_read_user_vault(Metadata *md) {
     
     g_object_unref(parser);
     free(plaintext);
+
+    struct tm *last_modified = localtime(&(md->last_modified));
+    char time_buf[23];
+    strftime(time_buf, sizeof(time_buf), "%m-%d-%Y at %H:%M:%S", last_modified);
+
+    util_log(DEBUG, "Loaded %d entries from user vault; last modified %s", md->num_entries, time_buf);
 
     return true;
 }

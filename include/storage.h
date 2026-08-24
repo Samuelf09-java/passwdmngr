@@ -43,6 +43,8 @@ void init_accounts_json();
 void save_accounts();
 
 bool create_new_account(char *uname, char *passwd);
+bool storage_delete_account(char *uname);
+bool storage_change_passwd(char *uname, char *new_pass);
 
 char *storage_get_user_dir(char *uname);
 

@@ -12,6 +12,13 @@ typedef struct _DeleteAccDialogData {
     GtkWidget *pass_entry;
 } DeleteAccDialogData;
 
+typedef struct _ChangePasswdDialogData {
+    GtkWidget *dialog;
+    GtkWidget *curr_pass_entry;
+    GtkWidget *new_pass_entry;
+    GtkWidget *conf_new_pass_entry;
+} ChangePasswdDialogData;
+
 G_DEFINE_FINAL_TYPE(MainWindow, main_window, GTK_TYPE_BOX)
 
 static void on_edit_save(EntryEditBox *edit_box, MainWindow *self);
@@ -61,7 +68,7 @@ static void on_delete_response(GObject *source, GAsyncResult *result, gpointer u
     g_object_unref(dialog);
 
     if (!delete_entry(entry_id)) {
-        util_nonfatal_d("Failed to delete entry; check stderr for more information");
+        util_nonfatal_d("Failed to delete entry; check passwdmngr.log for more information");
         return;
     }
 
@@ -124,7 +131,7 @@ static void on_edit_save(EntryEditBox *edit_box, MainWindow *self) {
         return;
     }
     char *new_username = strdup(gtk_editable_get_text(GTK_EDITABLE(edit_box->username_entry)));
-    if (!strlen(new_username)) util_warn_d("Field 'new_username' is missing, continuing");
+    if (!strlen(new_username)) util_warn_d("Field 'username' is missing, continuing");
     char *password = strdup(gtk_editable_get_text(GTK_EDITABLE(edit_box->password_entry)));
     if (!strlen(password)) util_warn_d("Field 'password' is missing, continuing");
 
@@ -150,7 +157,7 @@ static void on_edit_save(EntryEditBox *edit_box, MainWindow *self) {
 
     if (edit_box->edit_mode == ENTRY_ADD) {
         if (!add_entry(new_entry)) {
-            util_nonfatal_d("Failed to add entry; check stderr for more information");
+            util_nonfatal_d("Failed to add entry; check passwdmngr.log for more information");
             free(new_entry);
             free(service);
             free(new_username);
@@ -164,7 +171,7 @@ static void on_edit_save(EntryEditBox *edit_box, MainWindow *self) {
         free(password);
     } else if (edit_box->edit_mode == ENTRY_EDIT) {
         if (!update_entry(edit_box->entry_id, new_entry)) {
-            util_nonfatal_d("Failed to update entry; check stderr for more information");
+            util_nonfatal_d("Failed to update entry; check passwdmngr.log for more information");
             free(new_entry);
             free(service);
             free(new_username);
@@ -318,6 +325,54 @@ static void on_clearlog_response(GObject *source, GAsyncResult *result, gpointer
     util_nonfatal_d("Failed to clear logfile: util returned null file pointer");
 }
 
+static void on_cancel_changepasswd_clicked (GtkButton *button, gpointer user_data) {
+    X(button);
+
+    util_log(DEBUG, "Password change canceled");
+    gtk_window_destroy(GTK_WINDOW(((ChangePasswdDialogData *) user_data)->dialog));
+    g_free(user_data);
+}
+
+static void on_confirm_changepasswd_clicked (GtkButton *button, gpointer user_data) {
+    X(button);
+
+    ChangePasswdDialogData *data = (ChangePasswdDialogData *)user_data;
+
+    const char *curr_pass = gtk_editable_get_text(GTK_EDITABLE(data->curr_pass_entry));
+    const char *new_pass = gtk_editable_get_text(GTK_EDITABLE(data->new_pass_entry));
+    const char *conf_new_pass = gtk_editable_get_text(GTK_EDITABLE(data->conf_new_pass_entry));
+
+    gtk_window_destroy(GTK_WINDOW(data->dialog));
+    g_free(data);
+
+    if (strlen(curr_pass) == 0 || strlen(new_pass) == 0 || strlen(conf_new_pass) == 0) {
+        util_nonfatal_d("Fields cannot be empty");
+        return;
+    }
+
+    if (!verify_account(username, curr_pass)) {
+        util_nonfatal_d("Wrong password - doing nothing");
+        return;
+    }
+
+    if (!strcmp(curr_pass, new_pass)) {
+        util_warn_d("New password is the same as old password - doing nothing");
+        return;
+    }
+
+    if (strcmp(new_pass, conf_new_pass)) {
+        util_nonfatal_d("Passwords do not match - doing nothing");
+        return;
+    }
+
+    if (!storage_change_passwd(username, (char *)new_pass)) {
+        util_fatal_d("Failed to change password; check passwdmngr.log for more information");
+        return;
+    }
+
+    util_log(INFO, "Successfully changed password");
+}
+
 static void on_cancel_deleteacc_clicked(GtkButton *button, gpointer user_data) {
     X(button);
 
@@ -347,50 +402,10 @@ static void on_confirm_deleteacc_clicked(GtkButton *button, gpointer user_data) 
         util_log(DEBUG, "Manually triggering user logout");
         logout_cb(NULL, NULL, MAIN_WINDOW(gtk_window_get_child(root_window)));
 
-        // delete data
-        if (!delete_recursive(storage_get_user_dir((char *) conf_username), NULL))
-            util_nonfatal_d("Failed to delete user dir");
-
-        // remove entry from accounts.json
-        Account *acc = NULL;
-        char *uname_hash = hash_uname(conf_username, strlen(conf_username));
-        int index = -1;
-        for (int i = 0; i < num_accounts; i++) {
-            if (!strcmp(accounts[i].uname_hash, uname_hash)) {
-                acc = accounts+i;
-                index = i;
-                break;
-            }
-        }
-        
-        if (!acc) {
-            util_fatal_d("Could not find user account to delete");
+        if (!storage_delete_account((char *)conf_username)) {
+            util_fatal_d("Failed to delete account; check passwdmngr.log for more information");
             return;
         }
-
-        if (acc->uname_hash) {
-            wipe_mem(acc->uname_hash, strlen(acc->uname_hash));
-            free(acc->uname_hash);
-        }
-        
-        if (acc->passwd_hash) {
-            wipe_mem(acc->passwd_hash, strlen(acc->passwd_hash));
-            free(acc->passwd_hash);
-        }
-
-        for (int j = index; j < num_accounts - 1; j++) {
-            accounts[j] = accounts[j + 1];
-        }
-
-        num_accounts--;
-        Account *new_accounts = realloc(accounts, sizeof(Account) * num_accounts);
-        if (!new_accounts) {
-            util_log(ERROR, "realloc failed for new accounts array");
-            return;
-        }
-        accounts = new_accounts;
-
-        save_accounts();
 
         util_log(INFO, "Deleted account with username '%s'", conf_username);
         
@@ -551,6 +566,28 @@ static void changepasswd_cb(GSimpleAction *action, GVariant *parameter, gpointer
     X(parameter);
     X(user_data);
     util_log(DEBUG, "Change password triggered");
+
+    GtkBuilder *builder = gtk_builder_new_from_resource("/com/samuelf09/passwdmngr/changepasswd_dialog.ui");
+
+    GtkWidget *dialog              = GTK_WIDGET(gtk_builder_get_object(builder, "dialog"));
+    GtkWidget *curr_pass_entry     = GTK_WIDGET(gtk_builder_get_object(builder, "curr_pass_entry"));
+    GtkWidget *new_pass_entry      = GTK_WIDGET(gtk_builder_get_object(builder, "new_pass_entry"));
+    GtkWidget *conf_new_pass_entry = GTK_WIDGET(gtk_builder_get_object(builder, "conf_new_pass_entry"));
+    GtkWidget *cancel_btn          = GTK_WIDGET(gtk_builder_get_object(builder, "cancel_btn"));
+    GtkWidget *conf_btn            = GTK_WIDGET(gtk_builder_get_object(builder, "conf_btn"));
+
+    gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(root_window));
+
+    ChangePasswdDialogData *data = g_new0(ChangePasswdDialogData, 1);
+    data->dialog = dialog;
+    data->curr_pass_entry = curr_pass_entry;
+    data->new_pass_entry = new_pass_entry;
+    data->conf_new_pass_entry = conf_new_pass_entry;
+
+    g_signal_connect(cancel_btn, "clicked", G_CALLBACK(on_cancel_changepasswd_clicked), data);
+    g_signal_connect(conf_btn, "clicked", G_CALLBACK(on_confirm_changepasswd_clicked), data);
+
+    gtk_window_present(GTK_WINDOW(dialog));
 }
 
 static void deleteacc_cb(GSimpleAction *action, GVariant *parameter, gpointer user_data) {
@@ -634,7 +671,7 @@ static void main_window_init(MainWindow *self) {
     
     if (md->version != STORAGE_SCHEMA_VERSION) util_fatal_d("Invalid storage schema version; update with porting tool if applicable");
 
-    if (!storage_read_user_vault(md)) util_fatal_d("Failed to read user vault; check stderr for more information");
+    if (!storage_read_user_vault(md)) util_fatal_d("Failed to read user vault; check passwdmngr.log for more information");
 
     reload_sidebar(self);
 
