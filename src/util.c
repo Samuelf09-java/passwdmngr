@@ -252,3 +252,29 @@ void *ec_malloc(size_t size) {
     util_assert(ptr != NULL, "malloc returned NULL pointer");
     return ptr;
 }
+
+static inline int is_horizontal_space(unsigned char c) {
+    return (c == ' ' || c == '\t');
+}
+
+char *trim(char *s) {
+    char *start = s;
+    char *end;
+
+    while (is_horizontal_space((unsigned char)*start))
+        start++;
+
+    if (*start == '\0') {
+        *s = '\0';
+        return s;
+    }
+
+    end = start + strlen(start) - 1;
+    while (end > start && is_horizontal_space((unsigned char)*end))
+        end--;
+
+    end[1] = '\0';
+    memmove(s, start, end + 2 - start);
+
+    return s;
+}

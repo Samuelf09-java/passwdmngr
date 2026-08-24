@@ -25,7 +25,7 @@ static char *storage_get_user_dir_with_hash(char *uname_hash);
 static int compare_entries_by_service(const void *a, const void *b) { // Sort alphabetically by service
     const PasswdEntry *ea = a;
     const PasswdEntry *eb = b;
-    return strcmp(ea->service, eb->service);
+    return strcasecmp(ea->service, eb->service);
 }
 
 bool load_accounts() {
@@ -302,7 +302,8 @@ bool storage_change_passwd(char *uname, char *new_pass) {
     tmp_passwd = strdup(new_pass);
     wipe_mem(aes_key, sizeof(aes_key));
 
-    return true;
+    Metadata *md = storage_read_user_metadata();
+    return storage_write_user_vault(md);
 }
 
 static char *storage_get_user_dir_with_hash(char *uname_hash) {

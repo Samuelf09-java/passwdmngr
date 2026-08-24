@@ -139,6 +139,7 @@ static void on_edit_save(EntryEditBox *edit_box, MainWindow *self) {
     GtkTextIter start, end;
     gtk_text_buffer_get_bounds(buffer, &start, &end);
     char *notes = gtk_text_buffer_get_text(buffer, &start, &end, FALSE);
+    trim(notes);
 
     PasswdEntry *new_entry = ec_malloc(sizeof(PasswdEntry));
     if (!new_entry) {
