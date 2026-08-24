@@ -248,6 +248,9 @@ static void on_edit_cancel(EntryEditBox *edit_box, MainWindow *self) {
 static void on_entry_selected(GtkListBox *box, GtkListBoxRow *row, MainWindow *self) {
 
     X(box);
+
+    if (!self->content_area)
+        return;
     
     box_remove_children(GTK_BOX(self->content_area));
 
