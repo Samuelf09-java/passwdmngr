@@ -449,6 +449,29 @@ static void openlog_cb(GSimpleAction *action, GVariant *parameter, gpointer user
     X(parameter);
     X(user_data);
     util_log(DEBUG, "Open log triggered");
+
+    GError *err = NULL;
+    char *uri = g_filename_to_uri(util_get_logfile(), NULL, &err);
+    if (!uri) {
+        char *msg = malloc(strlen("Failed to convert filename to URI: ") + strlen(err->message) + 1);
+        sprintf(msg, "Failed to convert filename to URI: %s", err->message);
+        util_nonfatal_d(msg);
+        g_error_free(err);
+        return;
+    }
+
+    if (!g_app_info_launch_default_for_uri(uri, NULL, &err)) {
+        char *msg = malloc(strlen("Failed to open file: ") + strlen(err->message) + 1);
+        sprintf(msg, "Failed to open file: %s", err->message);
+        util_nonfatal_d(msg);
+        g_error_free(err);
+        g_free(uri);
+        return;
+    }
+
+    util_log(INFO, "Opened passwdmngr.log in default text editor");
+
+    g_free(uri);
 }
 
 static void clearlog_cb(GSimpleAction *action, GVariant *parameter, gpointer user_data) {
