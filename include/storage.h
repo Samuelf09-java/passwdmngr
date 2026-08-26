@@ -48,6 +48,9 @@ bool storage_change_passwd(char *uname, char *new_pass);
 
 char *storage_get_user_dir(char *uname);
 
+bool encrypt_entries(PasswdEntry *entries, int num_entries, uint8_t *salt, uint8_t **ciphertext, int *ciphertext_len, uint8_t **nonce, uint8_t **tag);
+bool decrypt_entries_with_key(uint8_t *key, uint8_t *ciphertext, int ciphertext_len, uint8_t *nonce, uint8_t *tag, PasswdEntry **entries, int *num_entries);
+bool decrypt_entries(uint8_t *salt, uint8_t *ciphertext, int ciphertext_len, uint8_t *nonce, uint8_t *tag, PasswdEntry **entries, int *num_entries);
 Metadata *storage_read_user_metadata();
 bool storage_read_user_vault(Metadata *md);
 bool storage_write_metadata(Metadata *data);
@@ -60,4 +63,4 @@ bool add_entry(PasswdEntry *entry);
 bool delete_entry(int id);
 bool update_entry(int id, PasswdEntry *new_entry);
 
-void wipe_passwd_entries();
+void wipe_passwd_entries(PasswdEntry *entries, int num_entries);

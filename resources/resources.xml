@@ -6,8 +6,12 @@
     <file alias="entry_edit_box.ui">generated/entry_edit_box.ui</file>
     <file alias="entry_view_box.ui">generated/entry_view_box.ui</file>
     <file alias="entry_none_box.ui">generated/entry_none_box.ui</file>
-    <file alias="deleteacc_dialog.ui">generated/deleteacc_dialog.ui</file>
-    <file alias="changepasswd_dialog.ui">generated/changepasswd_dialog.ui</file>
+    <file alias="deleteacc_dialog.ui">generated/dialogs/deleteacc_dialog.ui</file>
+    <file alias="changepasswd_dialog.ui">generated/dialogs/changepasswd_dialog.ui</file>
+    <file alias="importmode_dialog.ui">generated/dialogs/importmode_dialog.ui</file>
+    <file alias="importpasswd_dialog.ui">generated/dialogs/importpasswd_dialog.ui</file>
+    <file alias="rename_entry_dialog.ui">generated/dialogs/rename_entry_dialog.ui</file>
+    <file alias="choose_entries_dialog.ui">generated/dialogs/choose_entries_dialog.ui</file>
     <file alias="main_menu.ui">ui/main_menu.ui</file>
     <file alias="style.css">css/style.css</file>
     <file alias="logo.png">icons/hicolor/128x128/apps/logo.png</file>

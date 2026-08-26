@@ -62,7 +62,7 @@ jobs:
           sudo apt install -y \
             build-essential pkgconf \
             libgtk-4-dev libglib2.0-dev libjson-glib-dev \
-            libsodium-dev libssl-dev \
+            libsodium-dev libssl-dev libzip-dev \
             python3 python3-pip meson ninja-build \
             ruby ruby-dev rubygems
           export PATH=/home/runner/.local/share/gem/ruby/*/bin:$PATH
@@ -101,6 +101,7 @@ jobs:
             --description "A simple password manager" \
             --depends libgtk-4-1 \
             --depends libsodium23 \
+            --depends libzip4
             --depends libjson-glib-1.0-0 \
             --prefix=/ \
             usr/
@@ -110,6 +111,7 @@ jobs:
             --description "A simple password manager" \
             --depends gtk4 \
             --depends libsodium \
+            --depends libzip
             --depends json-glib \
             --prefix=/ \
             usr/
@@ -132,7 +134,7 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: |
           brew update
-          brew install gtk4 json-glib libsodium openssl blueprint-compiler pkg-config
+          brew install gtk4 json-glib libsodium libzip openssl blueprint-compiler pkg-config
 
       - name: Build macOS executable
         if: matrix.os == 'macos-latest'
@@ -161,6 +163,8 @@ jobs:
               <string>PasswordManager</string>
               <key>CFBundleExecutable</key>
               <string>passwdmngr</string>
+              <key>CFBundleIconFile</key>
+              <string>logo</string>
               <key>CFBundleIdentifier</key>
               <string>com.samuelf09.passwdmngr</string>
               <key>CFBundleVersion</key>
@@ -234,6 +238,7 @@ jobs:
             mingw-w64-x86_64-gettext
             mingw-w64-x86_64-libsodium
             mingw-w64-x86_64-openssl
+            mingw-w64-x86_64-libzip
             mingw-w64-x86_64-blueprint-compiler
 
       - name: Build Windows executable

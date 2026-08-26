@@ -1,0 +1,36 @@
+using Gtk 4.0;
+
+Window dialog {
+    modal: true;
+    title: "Rename entry";
+    default-width: 350;
+
+    Box {
+        orientation: vertical;
+        spacing: 12;
+        margin-top: 12;
+        margin-bottom: 12;
+        margin-start: 12;
+        margin-end: 12;
+
+        Label {
+            label: _("Rename duplicate entry (you can edit names\nlater if you want, once everything is imported)");
+            halign: center;
+        }
+
+        Entry name_entry {
+            width-request: 300;
+            hexpand: false;
+            placeholder-text: _("Enter service name...");
+        }
+
+        Box {
+            orientation: horizontal;
+            halign: center;
+            spacing: 12;
+
+            Button cancel_btn { label: "Cancel"; }
+            Button conf_btn { label: "Rename"; }
+        }
+    }
+}

@@ -1,0 +1,37 @@
+using Gtk 4.0;
+
+Window dialog {
+
+    modal: true;
+    title: "Select Import Mode";
+    default-width: 350;
+
+    Box {
+        orientation: vertical;
+        margin-top: 12;
+        margin-bottom: 12;
+        margin-start: 12;
+        margin-end: 12;
+        spacing: 12;
+
+        Label { label: _("Choose an import mode from the dropdown below"); }
+
+        DropDown import_mode_dropdown {
+            model: StringList {
+                strings [
+                    "Replace existing data (creates backup in app dir)",
+                    "Insert data, overwriting entries with duplicate service names",
+                    "Insert data, prompting to keep/discard/rename duplicates"
+                ]
+            };
+        }
+
+        Box {
+            orientation: horizontal;
+            spacing: 12;
+
+            Button cancel_btn { label: _("Cancel"); }
+            Button confirm_btn { label: _("Confirm"); }
+        }
+    }
+}

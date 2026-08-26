@@ -51,7 +51,7 @@ char *util_get_app_dir() {
 
 char *util_get_logfile() {
     char *basedir = util_get_app_dir();
-    char *ret = malloc(strlen(basedir) + strlen("passwdmngr.log") + 1);
+    char *ret = ec_malloc(strlen(basedir) + strlen("passwdmngr.log") + 1);
     sprintf(ret, "%spasswdmngr.log", basedir);
     free(basedir);
     return ret;
@@ -251,6 +251,12 @@ void *ec_malloc(size_t size) {
     void *ptr = malloc(size);
     util_assert(ptr != NULL, "malloc returned NULL pointer");
     return ptr;
+}
+
+void *ec_realloc(void *ptr, size_t size) {
+    void *new_ptr = realloc(ptr, size);
+    util_assert(new_ptr != NULL, "realloc returned NULL pointer");
+    return new_ptr;
 }
 
 static inline int is_horizontal_space(unsigned char c) {

@@ -1,9 +1,9 @@
 CC ?= gcc
 
 CFLAGS = -Wall -Wextra -O2 -I./include
-CFLAGS += $(shell pkg-config --cflags gtk4 json-glib-1.0)
+CFLAGS += $(shell pkg-config --cflags gtk4 json-glib-1.0 libzip)
 
-LDLIBS := $(shell pkg-config --libs gtk4 json-glib-1.0) -lsodium -lcrypto -lssl
+LDLIBS := $(shell pkg-config --libs gtk4 json-glib-1.0 libzip) -lsodium -lcrypto -lssl
 
 SRC := $(shell find src -name '*.c')
 OBJ := $(patsubst src/%.c, build/%.o, $(SRC))
@@ -30,6 +30,8 @@ ifeq ($(OS),Windows_NT)
 
 	CFLAGS += -I$(WIN_PREFIX)/include
 	LDLIBS += -L$(WIN_PREFIX)/lib
+#   should really be ldflags, but since this is the only flag it isn't necessary
+	LDLIBS += -mwindows
 else
 	UNAME_S := $(shell uname -s)
 	ifeq ($(UNAME_S),Darwin)

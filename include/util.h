@@ -11,6 +11,7 @@ extern const char PATH_SEPARATOR;
 #define UNIMPLEMENTED util_error("This function is currently unimplemented") // mark a function as unimplemented
 
 #define STORAGE_SCHEMA_VERSION 1
+#define SALT_LEN 16
 
 enum ErrorType {
     WARN_D,
@@ -46,4 +47,5 @@ bool util_check_ptr(void *ptr, const char *msg);
 
 void wipe_mem(void *mem, size_t bytes);
 void *ec_malloc(size_t size);
+void *ec_realloc(void *ptr, size_t size);
 char *trim(char *s);

@@ -147,7 +147,7 @@ bool create_new_account(char *uname, char *passwd) {
 
     num_accounts++;
 
-    accounts = realloc(accounts, sizeof(Account) * num_accounts);
+    accounts = ec_realloc(accounts, sizeof(Account) * num_accounts);
     if (!accounts) {
         free(new_uname_hash);
         free(new_passwd_hash);
@@ -192,7 +192,7 @@ bool create_new_account(char *uname, char *passwd) {
     md->last_modified = time(NULL);
     md->num_entries = 0;
 
-    uint8_t salt[16];
+    uint8_t salt[SALT_LEN];
     randombytes_buf(salt, sizeof(salt));
     md->vault_salt = g_base64_encode(salt, sizeof(salt));
 
@@ -255,11 +255,9 @@ bool storage_delete_account(char *uname) {
     }
 
     num_accounts--;
-    Account *new_accounts = realloc(accounts, sizeof(Account) * num_accounts);
-    if (!new_accounts) {
-        util_log(ERROR, "realloc failed for new accounts array");
+    Account *new_accounts = ec_realloc(accounts, sizeof(Account) * num_accounts);
+    if (!new_accounts)
         return false;
-    }
     accounts = new_accounts;
 
     save_accounts();
@@ -333,6 +331,178 @@ char *storage_get_user_dir(char *uname) {
     char *user_dir = storage_get_user_dir_with_hash(uname_hash);
     free(uname_hash);
     return user_dir;
+}
+
+bool encrypt_entries(PasswdEntry *entries, int num_entries, uint8_t *salt, uint8_t **ciphertext, int *ciphertext_len, uint8_t **nonce, uint8_t **tag) {
+    JsonBuilder *builder = json_builder_new();
+    json_builder_begin_object(builder);
+
+    json_builder_set_member_name(builder, "entries");
+    json_builder_begin_array(builder);
+
+    for (int i = 0; i < num_entries; i++) {
+        json_builder_begin_object(builder);
+
+        json_builder_set_member_name(builder, "id");
+        json_builder_add_int_value(builder, entries[i].id);
+
+        json_builder_set_member_name(builder, "service");
+        json_builder_add_string_value(builder, entries[i].service);
+
+        json_builder_set_member_name(builder, "username");
+        json_builder_add_string_value(builder, entries[i].username);
+
+        json_builder_set_member_name(builder, "password");
+        json_builder_add_string_value(builder, entries[i].password);
+
+        json_builder_set_member_name(builder, "notes");
+        json_builder_add_string_value(builder, entries[i].notes);
+
+        json_builder_end_object(builder);
+    }
+
+    json_builder_end_array(builder);
+    json_builder_end_object(builder);
+
+    JsonGenerator *gen = json_generator_new();
+    JsonNode *root = json_builder_get_root(builder);
+
+    json_generator_set_root(gen, root);
+    char *json_data = json_generator_to_data(gen, NULL);
+
+    json_node_free(root);
+    g_object_unref(gen);
+    g_object_unref(builder);
+
+    if (!key_set) {
+        if (!derive_vault_key(tmp_passwd, salt, aes_key, sizeof(aes_key))) {
+            util_log(ERROR, "Failed to derive vault key");
+            g_free(json_data);
+            return false;
+        }
+        key_set = true;
+
+        // get plaintext password out of memory
+        wipe_mem(tmp_passwd, strlen(tmp_passwd));
+        free(tmp_passwd);
+        tmp_passwd = NULL;
+    }
+
+    *nonce = ec_malloc(12);
+    randombytes_buf(*nonce, 12);
+
+    int plaintext_len = strlen(json_data);
+    *ciphertext = ec_malloc(plaintext_len + 16);
+    *tag = ec_malloc(16);
+
+    *ciphertext_len = aes_gcm_encrypt(
+        (uint8_t *) json_data,
+        plaintext_len,
+        aes_key,
+        *nonce,
+        12,
+        *ciphertext,
+        *tag
+    );
+
+    g_free(json_data);
+
+    if (*ciphertext_len <= 0) {
+        util_log(ERROR, "Vault encryption failed");
+        free(*ciphertext);
+        free(*nonce);
+        free(*tag);
+        *ciphertext = NULL;
+        *nonce = NULL;
+        *tag = NULL;
+        return false;
+    }
+
+    return true;
+}
+
+bool decrypt_entries_with_key(uint8_t *key, uint8_t *ciphertext, int ciphertext_len, uint8_t *nonce, uint8_t *tag, PasswdEntry **entries, int *num_entries) {
+    uint8_t *plaintext = ec_malloc(ciphertext_len);
+
+    int plaintext_len = aes_gcm_decrypt(
+        ciphertext, ciphertext_len,
+        key,
+        nonce, 12,
+        tag,
+        plaintext
+    );
+
+    if (plaintext_len < 0) {
+        util_log(ERROR, "Vault decryption failed (wrong password/corrupted vault)");
+        free(plaintext);
+        return false;
+    }
+    
+    JsonParser *parser = json_parser_new();
+    if (!json_parser_load_from_data(parser, (char *)plaintext, plaintext_len, NULL)) {
+        util_log(ERROR, "Failed to load json from decrypted vault.bin");
+        g_object_unref(parser);
+        free(plaintext);
+        return false;
+    }
+    
+    JsonNode *root = json_parser_get_root(parser);
+    JsonObject *obj = json_node_get_object(root);
+    
+    JsonArray *entries_array = json_object_get_array_member(obj, "entries");
+    if (!entries_array) {
+        util_log(ERROR, "decrypted data missing 'entries' array");
+        g_object_unref(parser);
+        return false;
+    }
+
+    *num_entries = json_array_get_length(entries_array);
+    
+    *entries = ec_malloc(sizeof(PasswdEntry) * *num_entries);
+    if (!entries) {
+        util_log(ERROR, "malloc failed for passwdentry array");
+        return false;
+    }
+
+    for (int i = 0; i < *num_entries; i++) {
+        JsonObject *entry = json_array_get_object_element(entries_array, i);
+
+        int id               = json_object_get_int_member(   entry, "id");
+        const char *service  = json_object_get_string_member(entry, "service");
+        const char *username = json_object_get_string_member(entry, "username");
+        const char *password = json_object_get_string_member(entry, "password");
+        const char *notes    = json_object_get_string_member(entry, "notes");
+
+        (*entries)[i].id       =        id;
+        (*entries)[i].service  = strdup(service);
+        (*entries)[i].username = strdup(username);
+        (*entries)[i].password = strdup(password);
+        (*entries)[i].notes    = strdup(notes);
+    }
+    
+    g_object_unref(parser);
+    free(plaintext);
+
+    return true;
+}
+
+// Uses current user's key
+bool decrypt_entries(uint8_t *salt, uint8_t *ciphertext, int ciphertext_len, uint8_t *nonce, uint8_t *tag, PasswdEntry **entries, int *num_entries) {
+    if (!key_set) {
+        if (!derive_vault_key(tmp_passwd, salt, aes_key, sizeof(aes_key))) {
+            util_log(ERROR, "Failed to derive vault key");
+            return false;
+        }
+
+        key_set = true;
+
+        // get plaintext password out of memory
+        wipe_mem(tmp_passwd, strlen(tmp_passwd));
+        free(tmp_passwd);
+        tmp_passwd = NULL;
+    }
+
+    return decrypt_entries_with_key(aes_key, ciphertext, ciphertext_len, nonce, tag, entries, num_entries);
 }
 
 Metadata *storage_read_user_metadata() {
@@ -452,85 +622,18 @@ bool storage_read_user_vault(Metadata *md) {
     uint8_t *ciphertext = vault_buf + 12 + 16;
     int ciphertext_len = fsize - (12 + 16);
 
-    if (!key_set) {
-        gsize salt_len;
-        uint8_t *salt = g_base64_decode(md->vault_salt, &salt_len);
+    gsize salt_len;
+    uint8_t *salt = g_base64_decode(md->vault_salt, &salt_len);
 
-        if (!derive_vault_key(tmp_passwd, salt, aes_key, sizeof(aes_key))) {
-            util_log(ERROR, "Failed to derive vault key");
-            free(salt);
-            free(vault_buf);
-            return false;
-        }
-
-        free(salt);
-        key_set = true;
-
-        // get plaintext password out of memory
-        wipe_mem(tmp_passwd, strlen(tmp_passwd));
-        free(tmp_passwd);
-        tmp_passwd = NULL;
-    }
-
-    uint8_t *plaintext = ec_malloc(ciphertext_len);
-
-    int plaintext_len = aes_gcm_decrypt(
-        ciphertext, ciphertext_len,
-        aes_key,
-        nonce, sizeof(nonce),
-        tag,
-        plaintext
-    );
-
-    if (plaintext_len < 0) {
-        util_log(ERROR, "Vault decryption failed (wrong password/corrupted vault)");
+    if (!decrypt_entries(salt, ciphertext, ciphertext_len, nonce, tag, &entries, &num_entries)) {
+        util_log(FATAL, "Failed to decrypt entries array");
         free(vault_buf);
-        free(plaintext);
-        return false;
-    }
-    
-    JsonParser *parser = json_parser_new();
-    if (!json_parser_load_from_data(parser, (char *)plaintext, plaintext_len, NULL)) {
-        util_log(ERROR, "Failed to load json from decrypted vault.bin");
-        g_object_unref(parser);
-        free(plaintext);
-        return false;
-    }
-    
-    JsonNode *root = json_parser_get_root(parser);
-    JsonObject *obj = json_node_get_object(root);
-    
-    JsonArray *entries_array = json_object_get_array_member(obj, "entries");
-    if (!entries_array) {
-        util_log(ERROR, "decrypted data missing 'entries' array");
-        g_object_unref(parser);
-        return false;
-    }
-    
-    entries = ec_malloc(sizeof(PasswdEntry) * num_entries);
-    if (!entries) {
-        util_log(ERROR, "malloc failed for passwdentry array");
+        free(salt);
         return false;
     }
 
-    for (int i = 0; i < num_entries; i++) {
-        JsonObject *entry = json_array_get_object_element(entries_array, i);
-
-        int id               = json_object_get_int_member(   entry, "id");
-        const char *service  = json_object_get_string_member(entry, "service");
-        const char *username = json_object_get_string_member(entry, "username");
-        const char *password = json_object_get_string_member(entry, "password");
-        const char *notes    = json_object_get_string_member(entry, "notes");
-
-        entries[i].id       =        id;
-        entries[i].service  = strdup(service);
-        entries[i].username = strdup(username);
-        entries[i].password = strdup(password);
-        entries[i].notes    = strdup(notes);
-    }
-    
-    g_object_unref(parser);
-    free(plaintext);
+    free(vault_buf);
+    free(salt);
 
     struct tm *last_modified = localtime(&(md->last_modified));
     char time_buf[23];
@@ -604,94 +707,26 @@ bool storage_write_user_vault(Metadata *md) {
     sprintf(vault_path, "%svault.bin", user_dir);
     free(user_dir);
 
-    JsonBuilder *builder = json_builder_new();
-    json_builder_begin_object(builder);
+    uint8_t *ciphertext = NULL;
+    int ciphertext_len  = 0;
+    uint8_t *nonce      = NULL;
+    uint8_t *tag        = NULL;
 
-    json_builder_set_member_name(builder, "entries");
-    json_builder_begin_array(builder);
+    gsize salt_len;
+    uint8_t *salt = g_base64_decode(md->vault_salt, &salt_len);
 
-    for (int i = 0; i < num_entries; i++) {
-        json_builder_begin_object(builder);
-
-        json_builder_set_member_name(builder, "id");
-        json_builder_add_int_value(builder, entries[i].id);
-
-        json_builder_set_member_name(builder, "service");
-        json_builder_add_string_value(builder, entries[i].service);
-
-        json_builder_set_member_name(builder, "username");
-        json_builder_add_string_value(builder, entries[i].username);
-
-        json_builder_set_member_name(builder, "password");
-        json_builder_add_string_value(builder, entries[i].password);
-
-        json_builder_set_member_name(builder, "notes");
-        json_builder_add_string_value(builder, entries[i].notes);
-
-        json_builder_end_object(builder);
-    }
-
-    json_builder_end_array(builder);
-    json_builder_end_object(builder);
-
-    JsonGenerator *gen = json_generator_new();
-    JsonNode *root = json_builder_get_root(builder);
-
-    json_generator_set_root(gen, root);
-    char *json_data = json_generator_to_data(gen, NULL);
-
-    json_node_free(root);
-    g_object_unref(gen);
-    g_object_unref(builder);
-
-    if (!key_set) {
-        gsize salt_len;
-        uint8_t *salt = g_base64_decode(md->vault_salt, &salt_len);
-
-        if (!derive_vault_key(tmp_passwd, salt, aes_key, sizeof(aes_key))) {
-            util_log(ERROR, "Failed to derive vault key");
-            free(salt);
-            g_free(json_data);
-            return false;
-        }
-
-        free(salt);
-        key_set = true;
-
-        // get plaintext password out of memory
-        wipe_mem(tmp_passwd, strlen(tmp_passwd));
-        free(tmp_passwd);
-        tmp_passwd = NULL;
-    }
-
-    uint8_t nonce[12];
-    randombytes_buf(nonce, sizeof(nonce));
-
-    int plaintext_len = strlen(json_data);
-    uint8_t *ciphertext = ec_malloc(plaintext_len + 16);
-    uint8_t tag[16];
-
-    int ciphertext_len = aes_gcm_encrypt(
-        (uint8_t *) json_data,
-        plaintext_len,
-        aes_key,
-        nonce,
-        sizeof(nonce),
-        ciphertext,
-        tag
-    );
-
-    g_free(json_data);
-
-    if (ciphertext_len <= 0) {
-        util_log(ERROR, "Vault encryption failed");
-        free(ciphertext);
+    if (!encrypt_entries(entries, num_entries, salt, &ciphertext, &ciphertext_len, &nonce, &tag)) {
+        util_log(ERROR, "Failed to encrypt user vault");
         return false;
-    }
+    };
+
+    free(salt);
 
     FILE *fp = fopen(vault_path, "wb");
     if (!fp) {
         util_log(ERROR, "Failed to open vault.bin for writing");
+        free(nonce);
+        free(tag);
         free(ciphertext);
         free(vault_path);
         return false;
@@ -703,6 +738,8 @@ bool storage_write_user_vault(Metadata *md) {
 
     fclose(fp);
     free(ciphertext);
+    free(nonce);
+    free(tag);
     free(vault_path);
 
     return true;
@@ -726,11 +763,17 @@ PasswdEntry *storage_get_entry(int id) {
 
 bool add_entry(PasswdEntry *entry) {
 
-    for (int i = 0; i < num_entries; i++)
+    for (int i = 0; i < num_entries; i++) {
         if (!strcmp(entries[i].service, entry->service)) {
             util_log(ERROR, "Duplicate service name");
             return false;
         }
+
+        if (entries[i].id == entry->id) {
+            util_log(ERROR, "Duplicate id");
+            return false;
+        }
+    }
     
     Metadata *md = storage_read_user_metadata();
 
@@ -788,9 +831,13 @@ bool delete_entry(int id) {
         return false;
     }
 
+    wipe_mem(entries[index].service, strlen(entries[index].service));
     free(entries[index].service);
+    wipe_mem(entries[index].username, strlen(entries[index].username));
     free(entries[index].username);
+    wipe_mem(entries[index].password, strlen(entries[index].password));
     free(entries[index].password);
+    wipe_mem(entries[index].notes, strlen(entries[index].notes));
     free(entries[index].notes);
 
     for (int j = index; j < num_entries - 1; j++) {
@@ -800,11 +847,9 @@ bool delete_entry(int id) {
     Metadata *md = storage_read_user_metadata();
 
     num_entries--;
-    PasswdEntry *new_entries = realloc(entries, sizeof(PasswdEntry) * num_entries);
-    if (!new_entries) {
-        util_log(ERROR, "realloc failed for new passwdentry array");
+    PasswdEntry *new_entries = ec_realloc(entries, sizeof(PasswdEntry) * num_entries);
+    if (!new_entries)
         return false;
-    }
     entries = new_entries;
 
     md->num_entries = num_entries;
@@ -869,7 +914,7 @@ bool update_entry(int id, PasswdEntry *new_entry) {
 }
 
 // Shred the sensitive entries array
-void wipe_passwd_entries() {
+void wipe_passwd_entries(PasswdEntry *entries, int num_entries) {
     for (int i = 0; i < num_entries; i++) {
 
         if (entries[i].service) {
@@ -899,6 +944,4 @@ void wipe_passwd_entries() {
 
     wipe_mem(entries, sizeof(PasswdEntry) * num_entries);
     free(entries);
-    entries = NULL;
-    num_entries = -1;
 }

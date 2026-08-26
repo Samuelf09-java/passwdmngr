@@ -16,6 +16,7 @@
     <dependency>glib</dependency>
     <dependency>json-glib</dependency>
     <dependency>libsodium</dependency>
+    <dependency>libzip</dependency>
     <dependency>openssl</dependency>
   </dependencies>
 </app-bundle>

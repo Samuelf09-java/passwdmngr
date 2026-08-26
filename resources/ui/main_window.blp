@@ -9,34 +9,39 @@ template $MainWindow : Box {
     Paned {
         orientation: horizontal;
 
-        ScrolledWindow sidebar {
-            min-content-width: 250;
-            max-content-height: 350;
-            vexpand: true;
+        Box {
+            orientation: vertical;
+            spacing: 5;
 
-            Box {
-                orientation: vertical;
+            Label {
+                label: _("Select service");
+                css-classes: ["service-select"];
+            }
 
-                css-classes: ["gray-bg"];
+            ScrolledWindow sidebar {
+                min-content-width: 250;
+                max-content-height: 350;
+                vexpand: true;
 
-                spacing: 5;
-                margin-top: 5;
+                Box {
+                    orientation: vertical;
 
-                Label {
-                    label: _("Select service");
-                    css-classes: ["service-select"];
+                    css-classes: ["gray-bg"];
+
+                    spacing: 5;
+                    margin-top: 5;
+
+                    ListBox entries_listbox {
+                        selection-mode: single;
+                        vexpand: true;
+                        row-selected => $on_entry_selected();
+                    }
                 }
+            }
 
-                ListBox entries_listbox {
-                    selection-mode: single;
-                    vexpand: true;
-                    row-selected => $on_entry_selected();
-                }
-
-                Button add_entry_button {
-                    label: _("Add entry");
-                    clicked => $on_add_entry_clicked();
-                }
+            Button add_entry_button {
+                label: _("Add entry");
+                clicked => $on_add_entry_clicked();
             }
         }
 

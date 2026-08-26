@@ -99,7 +99,9 @@ static void on_shutdown(GApplication *app, gpointer user_data) {
     X(app);
     X(user_data);
 
-    if (entries) wipe_passwd_entries();
+    if (entries) wipe_passwd_entries(entries, num_entries);
+    entries = NULL;
+    num_entries = -1;
     if (tmp_passwd) {
         wipe_mem(tmp_passwd, strlen(tmp_passwd));
         free(tmp_passwd);

@@ -1,0 +1,37 @@
+using Gtk 4.0;
+
+Window dialog {
+    modal: true;
+    title: "Import Password";
+    default-width: 350;
+
+    Box {
+        orientation: vertical;
+        spacing: 12;
+        margin-top: 12;
+        margin-bottom: 12;
+        margin-start: 12;
+        margin-end: 12;
+
+        Label {
+            label: _("Enter password used to encrypt this data\n(the one for the account it was exported from)");
+            halign: center;
+        }
+
+        PasswordEntry pass_entry {
+            width-request: 300;
+            hexpand: false;
+            show-peek-icon: true;
+            placeholder-text: _("Enter password...");
+        }
+
+        Box {
+            orientation: horizontal;
+            halign: center;
+            spacing: 12;
+
+            Button cancel_btn { label: "Cancel"; }
+            Button conf_btn { label: "Confirm"; }
+        }
+    }
+}

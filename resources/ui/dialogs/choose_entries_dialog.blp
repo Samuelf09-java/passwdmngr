@@ -1,0 +1,46 @@
+using Gtk 4.0;
+
+Window dialog {
+    title: _("Select entries to export");
+    modal: true;
+
+    width-request: 280;
+    height-request: 400;
+
+    Box {
+        orientation: vertical;
+        spacing: 12;
+        margin-top: 12;
+        margin-bottom: 12;
+        margin-start: 12;
+        margin-end: 12;
+
+        Box {
+            orientation: horizontal;
+            spacing: 12;
+            halign: center;
+
+            Button select_all_btn { label: _("Select all"); }
+            Button deselect_all_btn { label: _("Deselect all"); }
+        }
+
+        ScrolledWindow {
+            min-content-width: 250;
+            max-content-height: 350;
+            vexpand: true;
+
+            ListBox entries_box {
+                selection-mode: none;
+            }
+        }
+
+        Box {
+            orientation: horizontal;
+            spacing: 12;
+            halign: end;
+
+            Button cancel_btn  { label: _("Cancel"); }
+            Button confirm_btn { label: _("Confirm"); }
+        }
+    }
+}
