@@ -101,7 +101,7 @@ jobs:
             --description "A simple password manager" \
             --depends libgtk-4-1 \
             --depends libsodium23 \
-            --depends libzip4
+            --depends libzip4 \
             --depends libjson-glib-1.0-0 \
             --prefix=/ \
             usr/
@@ -111,7 +111,7 @@ jobs:
             --description "A simple password manager" \
             --depends gtk4 \
             --depends libsodium \
-            --depends libzip
+            --depends libzip \
             --depends json-glib \
             --prefix=/ \
             usr/
