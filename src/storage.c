@@ -10,17 +10,17 @@
 #include "main.h"
 
 int num_accounts;
-Account *accounts;
-PasswdEntry *entries;
+Account *accounts = NULL;
+PasswdEntry *entries = NULL;
 
-char *tmp_passwd;
+char *tmp_passwd = NULL;
 uint8_t aes_key[32];
 bool key_set = false;
 
 char *username = NULL;
 int num_entries = -1;
 
-static char *storage_get_user_dir_with_hash(char *uname_hash);
+UserPref *curr_prefs = NULL;
 
 static int compare_entries_by_service(const void *a, const void *b) { // Sort alphabetically by service
     const PasswdEntry *ea = a;
@@ -30,54 +30,107 @@ static int compare_entries_by_service(const void *a, const void *b) { // Sort al
 
 bool load_accounts() {
 
-    JsonParser *parser = json_parser_new();
-    if (!json_parser_load_from_file(parser, accounts_path, NULL)) {
-        util_log(ERROR, "Failed to load accounts.json");
-        g_object_unref(parser);
+    char *accounts_path = util_get_accounts_file();
+    FILE *fp = fopen(accounts_path, "rb");
+
+    fseek(fp, 0, SEEK_END);
+    long fsize = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+
+    if (fsize < (int64_t)sizeof(AccountHeader)) {
+        util_log(ERROR, "accounts.bin is too small to contain a valid header!");
+        fclose(fp);
         return false;
     }
 
-    JsonNode *root = json_parser_get_root(parser);
-    JsonObject *obj = json_node_get_object(root);
+    uint8_t *accounts_buf = ec_malloc(fsize);
+    fread(accounts_buf, 1, fsize, fp);
+    fclose(fp);
 
-    JsonArray *accounts_array = json_object_get_array_member(obj, "accounts");
-    if (!accounts_array) {
-        util_log(ERROR, "accounts.json missing 'accounts' array");
-        g_object_unref(parser);
+    AccountHeader *hdr = (AccountHeader *)accounts_buf;
+
+    int64_t expected_size = sizeof(AccountHeader) + hdr->num_accounts * sizeof(Account);
+
+    if (fsize < expected_size) {
+        util_log(ERROR, "accounts.bin truncated or corrupted");
+        free(accounts_buf);
         return false;
     }
 
-    num_accounts = json_array_get_length(accounts_array);
+    if (memcmp(hdr->magic, ACCOUNTS_MAGIC, 6)) { // invalid magic
+        util_log(FATAL, "Invalid file format! (wrong magic bytes)");
+        free(accounts_buf);
+        return false;
+    }
+
+    if (hdr->version != ACCOUNTS_SCHEMA_VERSION) {
+        util_log(FATAL, "Invalid file format! (wrong version)");
+        free(accounts_buf);
+        return false;
+    }
+
+    uint8_t *hash = sha_256_hash(accounts_buf + 10 + HASH_LEN, fsize - 10 - HASH_LEN);
+    if (!util_check_ptr(hash, "Failed to hash vault data!")) {
+        free(accounts_buf);
+        return false;
+    }
+
+    if (memcmp(hdr->hash, hash, HASH_LEN)) {
+        util_log(FATAL, "Could not verify vault integrity; hashes do not match!");
+        free(hash);
+        free(accounts_buf);
+        return false;
+    }
+
+    free(hash);
+
+    num_accounts = hdr->num_accounts;
     accounts = ec_malloc(sizeof(Account) * num_accounts);
+    int i = 0;
 
-    for (int i = 0; i < num_accounts; i++) {
-        JsonObject *entry = json_array_get_object_element(accounts_array, i);
+    for (uint8_t *p = accounts_buf + sizeof(AccountHeader); p < accounts_buf + sizeof(AccountHeader) + num_accounts * sizeof(Account); p += sizeof(Account))
+        memcpy(&accounts[i++], p, sizeof(Account));
 
-        const char *uname_hash = json_object_get_string_member(entry, "uname_hash");
-        const char *passwd_hash = json_object_get_string_member(entry, "passwd_hash");
+    free(accounts_buf);
 
-        accounts[i].uname_hash = strdup(uname_hash);
-        accounts[i].passwd_hash = strdup(passwd_hash);
-    }
-    
-    g_object_unref(parser);
     return true;
 }
 
-void free_accounts() {
-    for (int i = 0; i < num_accounts; i++) {
-        free(accounts[i].uname_hash);
-        free(accounts[i].passwd_hash);
+bool init_accounts() {
+
+    AccountHeader *hdr = ec_malloc(sizeof(AccountHeader));
+    memcpy(hdr->magic, ACCOUNTS_MAGIC, 6);
+    hdr->version = ACCOUNTS_SCHEMA_VERSION;
+    hdr->num_accounts = 0;
+    
+    uint8_t *hash = sha_256_hash((uint8_t *)(hdr + sizeof(AccountHeader) - 10 - HASH_LEN), sizeof(AccountHeader) - 10 - HASH_LEN);
+    if (!util_check_ptr(hash, "Failed to hash accounts header")) {
+        free(hdr);
+        return false;
     }
-    free(accounts);
+
+    memcpy(hdr->hash, hash, HASH_LEN);
+
+    char *accounts_path = util_get_accounts_file();
+
+    FILE *fp = fopen(accounts_path, "wb");
+    if (!util_check_ptr(fp, "Failed to open accounts file")) {
+        free(hdr);
+        free(accounts_path);
+        return false;
+    }
+
+    fwrite(hdr, 1, sizeof(AccountHeader), fp);
+    fclose(fp);
+    return true;
 }
 
-void init_accounts_json() {
+void init_pref_json(char *pref_path) {
 
     JsonBuilder *builder = json_builder_new();
 
     json_builder_begin_object(builder);
-    json_builder_set_member_name(builder, "accounts");
+    json_builder_set_member_name(builder, "preferences");
     json_builder_begin_array(builder);
 
     json_builder_end_array(builder);
@@ -87,7 +140,7 @@ void init_accounts_json() {
     JsonNode *root = json_builder_get_root(builder);
 
     json_generator_set_root(gen, root);
-    json_generator_to_file(gen, accounts_path, NULL);
+    json_generator_to_file(gen, pref_path, NULL);
 
     json_node_free(root);
     g_object_unref(gen);
@@ -95,20 +148,88 @@ void init_accounts_json() {
 }
 
 void save_accounts() {
+
+    uint8_t *write_buf = ec_malloc(sizeof(AccountHeader) + sizeof(Account) * num_accounts);
+    AccountHeader *hdr = (AccountHeader *)write_buf;
+
+    memcpy(hdr->magic, ACCOUNTS_MAGIC, 6);
+    hdr->version = ACCOUNTS_SCHEMA_VERSION;
+    hdr->num_accounts = num_accounts;
+
+    int i = 0;
+    for (uint8_t *p = write_buf + sizeof(AccountHeader); p < write_buf + sizeof(AccountHeader) + sizeof(Account) * num_accounts; p += sizeof(Account))
+        memcpy(p, &accounts[i++], sizeof(Account));
+
+    uint8_t *hash = sha_256_hash(write_buf + 10 + HASH_LEN, sizeof(AccountHeader) - 10 - HASH_LEN);
+    if (!util_check_ptr(hash, "Failed to hash account data for writing to accounts.bin")) {
+        free(write_buf);
+        return;
+    }
+    
+    memcpy(hdr->hash, hash, HASH_LEN);
+    free(hash);
+
+    char *accounts_path = util_get_accounts_file();
+    FILE *fp = fopen(accounts_path, "wb");
+    free(accounts_path);
+    if (!util_check_ptr(fp, "Failed to open accounts file for writing")) {
+        free(write_buf);
+        return;
+    }
+
+    fwrite(write_buf, 1, sizeof(AccountHeader) + sizeof(Account) * num_accounts, fp);
+    fclose(fp);
+}
+
+int storage_read_prefs(UserPref **prefs) {
+
+    char *prefs_path = util_get_prefs_file();
+    if (!util_check_ptr(prefs_path, "Failed to build path to preferences.json"))
+        return -1;
+
+    JsonParser *parser = json_parser_new();
+    if (!json_parser_load_from_file(parser, prefs_path, NULL)) {
+        util_log(ERROR, "Failed to load preferences.json");
+        g_object_unref(parser);
+        return -2;
+    }
+
+    JsonNode *root = json_parser_get_root(parser);
+    JsonObject *obj = json_node_get_object(root);
+
+    JsonArray *prefs_array = json_object_get_array_member(obj, "preferences");
+    if (!util_check_ptr(prefs_array, "preferences.json missing 'preferences' array")) {
+        g_object_unref(parser);
+        return -3;
+    }
+
+    int num_prefs = json_array_get_length(prefs_array);
+    *prefs = ec_malloc(sizeof(UserPref) * num_prefs);
+
+    for (int i = 0; i < num_prefs; i++) {
+        JsonObject *entry = json_array_get_object_element(prefs_array, i);
+
+        const char *uname_hash = json_object_get_string_member(entry, "uname_hash");
+
+        (*prefs)[i].uname_hash = strdup(uname_hash);
+    }
+    
+    g_object_unref(parser);
+    return num_prefs;
+}
+
+bool storage_save_prefs(UserPref *prefs, int num_prefs) {
     JsonBuilder *builder = json_builder_new();
 
     json_builder_begin_object(builder);
-    json_builder_set_member_name(builder, "accounts");
+    json_builder_set_member_name(builder, "preferences");
     json_builder_begin_array(builder);
 
-    for (int i = 0; i < num_accounts; i++) {
+    for (int i = 0; i < num_prefs; i++) {
         json_builder_begin_object(builder);
 
         json_builder_set_member_name(builder, "uname_hash");
-        json_builder_add_string_value(builder, accounts[i].uname_hash);
-
-        json_builder_set_member_name(builder, "passwd_hash");
-        json_builder_add_string_value(builder, accounts[i].passwd_hash);
+        json_builder_add_string_value(builder, prefs[i].uname_hash);
 
         json_builder_end_object(builder);
     }
@@ -121,216 +242,316 @@ void save_accounts() {
 
     json_generator_set_root(gen, root);
     json_generator_set_pretty(gen, true);
-    if (!json_generator_to_file(gen, accounts_path, NULL)) util_log(ERROR, "Failed to write new metadata.json");
 
+    char *prefs_path = util_get_prefs_file();
+    if (!util_check_ptr(prefs_path, "Failed to build path to preferences.json")) {
+        json_node_free(root);
+        g_object_unref(gen);
+        g_object_unref(builder);
+        return false;
+    }
+
+    if (!json_generator_to_file(gen, prefs_path, NULL)) {
+        util_log(ERROR, "Failed to save prefs to preferences.json");
+        free(prefs_path);
+        json_node_free(root);
+        g_object_unref(gen);
+        g_object_unref(builder);
+        return false;
+    }
+
+    free(prefs_path);
     json_node_free(root);
     g_object_unref(gen);
     g_object_unref(builder);
+    return true;
+}
+
+UserPref *get_user_prefs(char *uname) {
+
+    char *uname_hash = hash_uname(uname);
+    if (!util_check_ptr(uname_hash, "Failed to hash username to get preferences"))
+        return NULL;
+    
+    UserPref *prefs = NULL;
+    int num_prefs = storage_read_prefs(&prefs);
+
+    for (int i = 0; i < num_prefs; i++)
+        if (!strcmp(prefs[i].uname_hash, uname_hash)) {
+            free(uname_hash);
+            UserPref *pref = ec_malloc(sizeof(UserPref));
+            memcpy(pref, &prefs[i], sizeof(UserPref));
+            free(prefs);
+            return pref;
+        }
+
+    // if we reach here, user has no entry; use defaults
+
+    free(prefs);
+    
+    UserPref *pref = ec_malloc(sizeof(UserPref));
+    pref->uname_hash = uname_hash;
+    // fill in other defaults as needed
+
+    return pref;
+}
+
+static bool init_user_vault() {
+    VaultHeader *hdr = ec_malloc(HEADER_LEN);
+    memcpy(hdr->magic, VAULT_MAGIC, 6);
+    hdr->version = VAULT_SCHEMA_VERSION;
+    hdr->num_entries = 0;
+    randombytes_buf(hdr->salt, sizeof(hdr->salt));
+
+    uint8_t *ciphertext = NULL;
+    uint8_t *nonce = NULL;
+    uint8_t *tag = NULL;
+
+    uint32_t clen = 0;
+    if (!encrypt_entries(NULL, 0, hdr->salt, &ciphertext, (int32_t *)&clen, &nonce, &tag)) {
+        util_log(ERROR, "Failed to encrypt dummy entries for vault init");
+        free(hdr);
+        return false;
+    }
+    hdr->ciphertext_len = clen;
+
+    memcpy(hdr->nonce, nonce, 12);
+    memcpy(hdr->tag,   tag,   16);
+    free(nonce);
+    free(tag);
+
+    hdr->timestamp = time(NULL);
+
+    uint8_t *write_buf = ec_malloc(HEADER_LEN + hdr->ciphertext_len);
+    memcpy(write_buf, hdr, HEADER_LEN);
+    memcpy(write_buf + HEADER_LEN, ciphertext, hdr->ciphertext_len);
+
+    // hash part of header + ciphertext
+    uint8_t *hash = sha_256_hash(write_buf + 10 + HASH_LEN, HEADER_LEN + hdr->ciphertext_len - 10 - HASH_LEN);
+    if (!util_check_ptr(hash, "Failed to hash data for vault init")) {
+        free(hdr);
+        free(write_buf);
+        return false;
+    }
+
+    memcpy(write_buf + 10, hash, HASH_LEN);
+    return true;
 }
 
 bool create_new_account(char *uname, char *passwd) {
 
-    char *new_uname_hash = hash_uname(uname, strlen(uname));
-    if (!util_check_ptr(new_uname_hash, "Failed to hash username")) return false;
+    uint8_t *new_uname_hash = sha_256_hash((uint8_t *)uname, strlen(uname));
+    if (!util_check_ptr(new_uname_hash, "Failed to hash username"))
+        return false;
 
     for (int i = 0; i < num_accounts; i++) {
-        if (strcmp(accounts[i].uname_hash, new_uname_hash) == 0) {
+        if (memcmp(accounts[i].uname_hash, new_uname_hash, HASH_LEN) == 0) {
             free(new_uname_hash);
             util_log(ERROR, "Duplicate username");
             return false;
         }
     }
 
-    char *new_passwd_hash = ec_malloc(crypto_pwhash_STRBYTES);
+    uint8_t *new_passwd_hash = ec_malloc(HASH_LEN + SALT_LEN);
 
-    if (hash_pw(passwd, new_passwd_hash, crypto_pwhash_STRBYTES) < 0) return false;
+    if (!hash_pw(passwd, new_passwd_hash, HASH_LEN + SALT_LEN)) {
+        util_log(ERROR, "Failed to hash new password");
+        free(new_uname_hash);
+        free(new_passwd_hash);
+        return false;
+    }
 
     num_accounts++;
 
     accounts = ec_realloc(accounts, sizeof(Account) * num_accounts);
     if (!accounts) {
+        num_accounts--;
         free(new_uname_hash);
         free(new_passwd_hash);
         util_log(ERROR, "Failed to expand accounts array");
         return false;
     }
 
-    accounts[num_accounts - 1].uname_hash  = new_uname_hash;
-    accounts[num_accounts - 1].passwd_hash = new_passwd_hash;
+    memcpy(accounts[num_accounts - 1].uname_hash,  new_uname_hash,  HASH_LEN);
+    memcpy(accounts[num_accounts - 1].passwd_hash, new_passwd_hash, HASH_LEN + SALT_LEN);
+
+    free(new_uname_hash);
+    free(new_passwd_hash);
 
     save_accounts();
 
     username = strdup(uname);
-
-    char *user_dir = storage_get_user_dir_with_hash(new_uname_hash);
-    if (!user_dir) {
-        util_log(ERROR, "Failed to build user dir structure");
-        return false;
-    }
-    g_mkdir_with_parents(user_dir, 0755);
     
-    char *meta_path = ec_malloc(strlen(user_dir) + strlen("metadata.json") + 1);
-    sprintf(meta_path, "%smetadata.json", user_dir);
-    char *vault_path = ec_malloc(strlen(user_dir) + strlen("vault.bin") + 1);
-    sprintf(vault_path, "%svault.bin", user_dir);
-    free(user_dir);
+    char *vault_path = storage_get_user_vault_path(uname);
 
-    FILE *fp = fopen(meta_path, "a");
+    FILE *fp = fopen(vault_path, "a");
+    free(vault_path);
     if (!fp) {
-        util_log(ERROR, "Failed to create metadata.json");
+        util_log(ERROR, "Failed to create vault file");
         return false;
     }
     fclose(fp);
 
-    Metadata *md = ec_malloc(sizeof(Metadata));
-    if (!md) {
-        util_log(ERROR, "Metadata malloc failed");
+    if (!init_user_vault()) {
+        util_log(ERROR, "Failed to initialize user vault!");
         return false;
     }
 
-    md->version = STORAGE_SCHEMA_VERSION;
-    md->last_modified = time(NULL);
-    md->num_entries = 0;
+    util_log(INFO, "Created new account & vault; saved to accounts.bin");
 
-    uint8_t salt[SALT_LEN];
-    randombytes_buf(salt, sizeof(salt));
-    md->vault_salt = g_base64_encode(salt, sizeof(salt));
+    return true;
+}
 
-    if (!storage_write_metadata(md)) {
-        util_log(ERROR, "Failed to write defaults to metadata.json");
+static bool delete_user_data(char *uname) {
+    char *vault_path = storage_get_user_vault_path(uname);
+    if (!util_check_ptr(vault_path, "Failed to get user vault path"))
+        return false;
+    
+    GFile *vault = g_file_new_for_path(vault_path);
+    free(vault_path);
+    GError *err;
+    if (!g_file_delete(vault, NULL, &err)) {
+        util_log(ERROR, "Failed to delete user vault");
+        g_object_unref(vault);
         return false;
     }
 
-    fp = fopen(vault_path, "a");
-    if (!fp) {
-        util_log(ERROR, "Failed to create vault.bin");
+    g_object_unref(vault);
+    
+    char *uname_hash = hash_uname(uname);
+    if (!util_check_ptr(uname_hash, "Failed to hash username for preferences lookup"))
+        return false;
+
+    UserPref *prefs = NULL;
+    int num_prefs = storage_read_prefs(&prefs);
+    if (num_prefs < 0) {
+        util_log(ERROR, "Failed to load user preferences");
+        free(uname_hash);
         return false;
     }
-    fclose(fp);
+    
+    for (int i = 0; i < num_prefs; i++)
+        if (!strcmp(prefs[i].uname_hash, uname_hash)) {
+            free(prefs[i].uname_hash);
+            free(uname_hash);
+            for (int j = i; j < num_prefs - 1; j++)
+                prefs[j] = prefs[j + 1];
 
-    storage_write_user_vault(md);
+            prefs = ec_realloc(prefs, --num_prefs * sizeof(UserPref));
+            if (!prefs)
+                return false;
+            storage_save_prefs(prefs, num_prefs);
+            return true;
+        }
 
-    util_log(INFO, "Created new account with user directory; saved to accounts.json");
-
+    util_log(DEBUG, "No preferences found for user %s", uname);
     return true;
 }
 
 bool storage_delete_account(char *uname) {
 
     // delete data
-    if (!delete_recursive(storage_get_user_dir(uname), NULL)) {
-        util_log(ERROR, "Failed to delete user dir");
+    if (!delete_user_data(uname)) {
+        util_log(ERROR, "Failed to delete user data");
         return false;
     }
 
     // remove entry from accounts.json
-    Account *acc = NULL;
-    char *uname_hash = hash_uname(uname, strlen(uname));
-    int index = -1;
+    uint8_t *uname_hash = sha_256_hash((uint8_t *)uname, strlen(uname));
     for (int i = 0; i < num_accounts; i++) {
-        if (!strcmp(accounts[i].uname_hash, uname_hash)) {
-            acc = accounts+i;
-            index = i;
-            break;
+        if (!memcmp(accounts[i].uname_hash, uname_hash, HASH_LEN)) {
+            free(uname_hash);
+            free(accounts + i);
+
+            for (int j = i; j < num_accounts - 1; j++)
+                accounts[j] = accounts[j + 1];
+
+            num_accounts--;
+            accounts = ec_realloc(accounts, sizeof(Account) * num_accounts);
+            if (!accounts)
+                return false;
+
+            save_accounts();
+            return true;
         }
     }
-    
-    if (!acc) {
-        util_log(FATAL, "Could not find user account to delete");
-        return false;
-    }
 
-    if (acc->uname_hash) {
-        wipe_mem(acc->uname_hash, strlen(acc->uname_hash));
-        free(acc->uname_hash);
-    }
-    
-    if (acc->passwd_hash) {
-        wipe_mem(acc->passwd_hash, strlen(acc->passwd_hash));
-        free(acc->passwd_hash);
-    }
-
-    for (int j = index; j < num_accounts - 1; j++) {
-        accounts[j] = accounts[j + 1];
-    }
-
-    num_accounts--;
-    Account *new_accounts = ec_realloc(accounts, sizeof(Account) * num_accounts);
-    if (!new_accounts)
-        return false;
-    accounts = new_accounts;
-
-    save_accounts();
-
-    return true;
+    free(uname_hash);
+    util_log(FATAL, "Could not find user account to delete");
+    return false;
 }
 
 // Expects account has already been verified before calling
 bool storage_change_passwd(char *uname, char *new_pass) {
 
-    Account *acc = NULL;
-    char *uname_hash = hash_uname(uname, strlen(uname));
+    uint8_t *uname_hash = sha_256_hash((uint8_t *)uname, strlen(uname));
     for (int i = 0; i < num_accounts; i++) {
-        if (!strcmp(accounts[i].uname_hash, uname_hash)) {
-            acc = accounts+i;
-            break;
+        if (!memcmp(accounts[i].uname_hash, uname_hash, HASH_LEN)) {
+            free(uname_hash);
+            uint8_t *new_passwd_hash = ec_malloc(HASH_LEN + SALT_LEN);
+            if (!hash_pw(new_pass, new_passwd_hash, HASH_LEN + SALT_LEN)) {
+                free(new_passwd_hash);
+                util_log(FATAL, "Failed to hash password");
+                return false;
+            }
+
+            memcpy(accounts[i].passwd_hash, new_passwd_hash, HASH_LEN + SALT_LEN);
+            free(new_passwd_hash);
+            save_accounts();
+
+            // force reencryption with new key
+            key_set = false;
+            tmp_passwd = strdup(new_pass);
+            wipe_mem(aes_key, sizeof(aes_key));
+
+            return storage_write_user_vault();
         }
     }
 
     free(uname_hash);
-
-    if (!acc) {
-        util_log(FATAL, "Failed to find account with username %s in accounts array", uname);
-        return false;
-    }
-
-    char *new_passwd_hash = ec_malloc(crypto_pwhash_STRBYTES);
-    if (hash_pw(new_pass, new_passwd_hash, crypto_pwhash_STRBYTES) < 0) {
-        free(new_passwd_hash);
-        util_log(FATAL, "Failed to hash password");
-        return false;
-    }
-
-    free(acc->passwd_hash);
-    acc->passwd_hash = new_passwd_hash;
-
-    save_accounts();
-
-    key_set = false;
-    tmp_passwd = strdup(new_pass);
-    wipe_mem(aes_key, sizeof(aes_key));
-
-    Metadata *md = storage_read_user_metadata();
-    return storage_write_user_vault(md);
+    util_log(FATAL, "Failed to find account with username %s in accounts array", uname);
+    return false;
 }
 
-static char *storage_get_user_dir_with_hash(char *uname_hash) {
+uint8_t *get_user_salt() {
+    char *vault_path = storage_get_user_vault_path(username);
+    VaultHeader *hdr = ec_malloc(HEADER_LEN);
+    FILE *fp = fopen(vault_path, "rb");
+    free(vault_path);
+    if (!fp) {
+        util_log(ERROR, "Failed to open vault file for reading salt");
+        free(hdr);
+        return NULL;
+    }
+    fread(hdr, 1, HEADER_LEN, fp);
+    fclose(fp);
+    uint8_t *salt = ec_malloc(SALT_LEN);
+    memcpy(salt, hdr->salt, SALT_LEN);
+    free(hdr);
+    return salt;
+}
+
+char *storage_get_user_vault_path(char *uname) {
+
+    if (!util_check_ptr(uname, "Failed to build path to user vault: uname is NULL")) 
+        return NULL;
+    
+    char *uname_hash = hash_uname(uname);
+    if (!util_check_ptr(uname_hash, "Failed to hash username"))
+        return NULL;
+
     char *app_dir = util_get_app_dir();
     if (!util_check_ptr(app_dir, "Failed to get app dir")) {
         free(uname_hash);
         return NULL;
     }
 
-    int path_len = strlen(app_dir) + strlen("users") + strlen(uname_hash) + 4;
+    int path_len = strlen(app_dir) + strlen("vaults") + 1 + strlen(uname_hash) + strlen(".pwmngr");
     char *path = ec_malloc(path_len);
-    snprintf(path, path_len, "%s%cusers%c%s%c", app_dir, PATH_SEPARATOR, PATH_SEPARATOR, uname_hash, PATH_SEPARATOR);
+    sprintf(path, "%svaults%c%s.pwmngr", app_dir, PATH_SEPARATOR, uname_hash);
     free(app_dir);
-    return path;
-}
-
-char *storage_get_user_dir(char *uname) {
-
-    if (!uname) {
-        util_log(ERROR, "uname is null in storage_get_user_dir()");
-        return NULL;
-    }
-    
-    char *uname_hash = hash_uname(uname, strlen(uname));
-    if (!util_check_ptr(uname_hash, "Failed to hash username")) return NULL;
-
-    char *user_dir = storage_get_user_dir_with_hash(uname_hash);
     free(uname_hash);
-    return user_dir;
+    return path;
 }
 
 bool encrypt_entries(PasswdEntry *entries, int num_entries, uint8_t *salt, uint8_t **ciphertext, int *ciphertext_len, uint8_t **nonce, uint8_t **tag) {
@@ -505,249 +726,199 @@ bool decrypt_entries(uint8_t *salt, uint8_t *ciphertext, int ciphertext_len, uin
     return decrypt_entries_with_key(aes_key, ciphertext, ciphertext_len, nonce, tag, entries, num_entries);
 }
 
-Metadata *storage_read_user_metadata() {
-    char *user_dir = storage_get_user_dir(username);
-    if (!user_dir) {
-        util_log(ERROR, "Failed to load user dir");
-        return NULL;
-    }
-    
-    char *meta_path = ec_malloc(strlen(user_dir) + strlen("metadata.json") + 1);
-    sprintf(meta_path, "%smetadata.json", user_dir);
-
-    JsonParser *parser = json_parser_new();
-    if (!json_parser_load_from_file(parser, meta_path, NULL)) {
-        util_log(ERROR, "Failed to load metadata.json");
-        g_object_unref(parser);
-        free(meta_path);
-        return NULL;
-    }
-
-    JsonNode *root = json_parser_get_root(parser);
-    JsonObject *obj = json_node_get_object(root);
-
-    Metadata *metadata = ec_malloc(sizeof(Metadata));
-    if (!metadata) {
-        util_log(ERROR, "Failed to allocate metadata struct");
-        g_object_unref(parser);
-        free(meta_path);
-        return NULL;
-    }
-
-    if (!json_object_has_member(obj, "version")) {
-        util_log(ERROR, "metadata.json missing 'version'");
-        free(metadata);
-        g_object_unref(parser);
-        free(meta_path);
-        return NULL;
-    }
-    metadata->version = json_object_get_int_member(obj, "version");
-
-    if (!json_object_has_member(obj, "last_modified")) {
-        util_log(ERROR, "metadata.json missing 'last_modified'");
-        free(metadata);
-        g_object_unref(parser);
-        free(meta_path);
-        return NULL;
-    }
-    metadata->last_modified = (time_t)json_object_get_int_member(obj, "last_modified");
-
-    if (!json_object_has_member(obj, "num_entries")) {
-        util_log(ERROR, "metadata.json missing 'num_entries'");
-        free(metadata);
-        g_object_unref(parser);
-        free(meta_path);
-        return NULL;
-    }
-    metadata->num_entries = json_object_get_int_member(obj, "num_entries");
-
-    if (!json_object_has_member(obj, "vault_salt")) {
-        util_log(ERROR, "metadata.json missing 'vault_salt'");
-        free(metadata);
-        g_object_unref(parser);
-        free(meta_path);
-        return NULL;
-    }
-    const char *salt_str = json_object_get_string_member(obj, "vault_salt");
-    metadata->vault_salt = strdup(salt_str);
-
-    g_object_unref(parser);
-    free(meta_path);
-
-    num_entries = metadata->num_entries;
-
-    return metadata;
-}
-
-bool storage_read_user_vault(Metadata *md) {
-
-    char *user_dir = storage_get_user_dir(username);
-    if (!user_dir) {
-        util_log(ERROR, "Failed to get user directory");
-        return false;
-    }
-
-    char *vault_path = ec_malloc(strlen(user_dir) + strlen("vault.bin") + 1);
-    sprintf(vault_path, "%svault.bin", user_dir);
-    free(user_dir);
-    
+int storage_read_vault_with_key(char *vault_path, uint8_t *key, PasswdEntry **entries, VaultHeader **hdr) {
     FILE *fp = fopen(vault_path, "rb");
     if (!fp) {
-        util_log(ERROR, "Failed to open vault.bin");
+        util_log(ERROR, "Failed to open vault");
         free(vault_path);
-        return false;
+        return -1;
     }
+
+    free(vault_path);
 
     fseek(fp, 0, SEEK_END);
     long fsize = ftell(fp);
     fseek(fp, 0, SEEK_SET);
 
+    if (fsize <= (int64_t)HEADER_LEN) {
+        util_log(ERROR, "Vault is too small to contain any data!");
+        return -2;
+    }
+
     uint8_t *vault_buf = ec_malloc(fsize);
     fread(vault_buf, 1, fsize, fp);
     fclose(fp);
-    free(vault_path);
 
-    if (fsize < 12 + 16) {
-        util_log(ERROR, "vault.bin too small to contain nonce+tag");
+    *hdr = ec_malloc(HEADER_LEN);
+    memcpy(*hdr, vault_buf, HEADER_LEN);
+
+    if (memcmp((*hdr)->magic, VAULT_MAGIC, 6)) { // invalid magic
+        util_log(FATAL, "Invalid file format! (wrong magic bytes)");
         free(vault_buf);
-        return false;
+        return -3;
     }
 
-    uint8_t nonce[12];
-    uint8_t tag[16];
+    if ((*hdr)->version != VAULT_SCHEMA_VERSION) {
+        util_log(FATAL, "Invalid file format! (wrong version)");
+        free(vault_buf);
+        return -4;
+    }
 
-    memcpy(nonce, vault_buf, 12);
-    memcpy(tag, vault_buf + 12, 16);
+    uint8_t *hash = sha_256_hash(vault_buf + 10 + HASH_LEN, fsize - 10 - HASH_LEN);
+    if (!util_check_ptr(hash, "Failed to hash vault data!")) {
+        free(vault_buf);
+        return -5;
+    }
 
-    uint8_t *ciphertext = vault_buf + 12 + 16;
-    int ciphertext_len = fsize - (12 + 16);
+    if (memcmp((*hdr)->hash, hash, HASH_LEN)) {
+        util_log(FATAL, "Could not verify vault integrity; hashes do not match!");
+        free(hash);
+        free(vault_buf);
+        return -6;
+    }
 
-    gsize salt_len;
-    uint8_t *salt = g_base64_decode(md->vault_salt, &salt_len);
+    free(hash);
 
-    if (!decrypt_entries(salt, ciphertext, ciphertext_len, nonce, tag, &entries, &num_entries)) {
+    uint8_t *ciphertext = vault_buf + HEADER_LEN;
+    int num_entries = -8;
+
+    if (key == NULL) {
+        if (!key_set) {
+            if (!derive_vault_key(tmp_passwd, (*hdr)->salt, aes_key, sizeof(aes_key))) {
+                util_log(ERROR, "Failed to derive vault key");
+                return -9;
+            }
+
+            key_set = true;
+            wipe_mem(tmp_passwd, strlen(tmp_passwd));
+            free(tmp_passwd);
+            tmp_passwd = NULL;
+        }
+        key = aes_key;
+    }
+
+    if (!decrypt_entries_with_key(key, ciphertext, (*hdr)->ciphertext_len, (*hdr)->nonce, (*hdr)->tag, entries, &num_entries)) {
         util_log(FATAL, "Failed to decrypt entries array");
         free(vault_buf);
-        free(salt);
-        return false;
+        return -7;
     }
 
     free(vault_buf);
-    free(salt);
+    return num_entries;
+}
 
-    struct tm *last_modified = localtime(&(md->last_modified));
+int storage_read_vault(char *vault_path, PasswdEntry **entries, VaultHeader **hdr) {
+    return storage_read_vault_with_key(vault_path, NULL, entries, hdr); // key is autofilled with current user's key if NULL
+}
+
+bool storage_read_user_vault() {
+
+    char *vault_path = storage_get_user_vault_path(username);
+    if (!util_check_ptr(vault_path, "Failed to build user vault path"))
+        return false;
+    
+    VaultHeader *hdr = ec_malloc(HEADER_LEN);
+    num_entries = storage_read_vault(vault_path, &entries, &hdr);
+    
+    time_t t = (time_t)hdr->timestamp;
+    struct tm *last_modified = localtime(&t);
     char time_buf[23];
     strftime(time_buf, sizeof(time_buf), "%m-%d-%Y at %H:%M:%S", last_modified);
 
-    util_log(DEBUG, "Loaded %d entries from user vault; last modified %s", md->num_entries, time_buf);
+    util_log(DEBUG, "Loaded %d entries from user vault; last modified %s", num_entries, time_buf);
 
     return true;
 }
 
-bool storage_write_metadata(Metadata *data) {
-    char *user_dir = storage_get_user_dir(username);
-    if (!user_dir) {
-        util_log(ERROR, "Failed to load user dir");
-        return NULL;
-    }
+bool storage_write_vault(char *vault_path, PasswdEntry *entries, int num_entries, uint8_t *salt) {
     
-    char *meta_path = ec_malloc(strlen(user_dir) + strlen("metadata.json") + 1);
-    sprintf(meta_path, "%smetadata.json", user_dir);
-
-    JsonBuilder *builder = json_builder_new();
-
-    json_builder_begin_object(builder);
-
-    json_builder_set_member_name(builder, "version");
-    json_builder_add_int_value(builder, data->version);
-
-    json_builder_set_member_name(builder, "last_modified");
-    json_builder_add_int_value(builder, (int)data->last_modified);
-
-    json_builder_set_member_name(builder, "num_entries");
-    json_builder_add_int_value(builder, data->num_entries);
-
-    json_builder_set_member_name(builder, "vault_salt");
-    json_builder_add_string_value(builder, data->vault_salt);
-
-    json_builder_end_object(builder);
-
-    JsonGenerator *gen = json_generator_new();
-    JsonNode *root = json_builder_get_root(builder);
-
-    json_generator_set_root(gen, root);
-    json_generator_set_pretty(gen, true);
-
-    if (!json_generator_to_file(gen, meta_path, NULL)) {
-        util_log(ERROR, "Failed to write metadata.json");
-        json_node_free(root);
-        g_object_unref(gen);
-        g_object_unref(builder);
-        free(meta_path);
-        return false;
-    }
-
-    json_node_free(root);
-    g_object_unref(gen);
-    g_object_unref(builder);
-    free(meta_path);
-
-    return true;
-}
-
-bool storage_write_user_vault(Metadata *md) {
-
-    char *user_dir = storage_get_user_dir((char*)username);
-    if (!user_dir) {
-        util_log(ERROR, "Failed to get user directory");
-        return false;
-    }
-
-    char *vault_path = ec_malloc(strlen(user_dir) + strlen("vault.bin") + 1);
-    sprintf(vault_path, "%svault.bin", user_dir);
-    free(user_dir);
+    VaultHeader *hdr = ec_malloc(HEADER_LEN);
+    memcpy(hdr->magic, VAULT_MAGIC, 6);
+    hdr->version = VAULT_SCHEMA_VERSION;
+    memcpy(hdr->salt, salt, SALT_LEN);
+    hdr->num_entries = num_entries;
 
     uint8_t *ciphertext = NULL;
-    int ciphertext_len  = 0;
-    uint8_t *nonce      = NULL;
-    uint8_t *tag        = NULL;
+    uint8_t *nonce = NULL;
+    uint8_t *tag = NULL;
 
-    gsize salt_len;
-    uint8_t *salt = g_base64_decode(md->vault_salt, &salt_len);
-
-    if (!encrypt_entries(entries, num_entries, salt, &ciphertext, &ciphertext_len, &nonce, &tag)) {
+    uint32_t clen = 0;
+    if (!encrypt_entries(entries, num_entries, salt, &ciphertext, (int32_t *)&clen, &nonce, &tag)) {
         util_log(ERROR, "Failed to encrypt user vault");
+        free(hdr);
         return false;
-    };
+    }
+    hdr->ciphertext_len = clen;
 
-    free(salt);
+    memcpy(hdr->nonce, nonce, 12);
+    memcpy(hdr->tag,   tag,   16);
+    free(nonce);
+    free(tag);
+    
+    uint8_t *write_buf = ec_malloc(HEADER_LEN + hdr->ciphertext_len);
+
+    hdr->timestamp = time(NULL);
+    memcpy(write_buf, hdr, HEADER_LEN);
+    memcpy(write_buf + HEADER_LEN, ciphertext, hdr->ciphertext_len);
+    free(ciphertext);
+    
+    uint8_t *hash = sha_256_hash(write_buf + 10 + HASH_LEN, HEADER_LEN + hdr->ciphertext_len - 10 - HASH_LEN);
+    if (!util_check_ptr(hash, "Failed to hash vault data for writing")) {
+        free(write_buf);
+        free(hdr);
+        return false;
+    }
+
+    memcpy(write_buf + 10, hash, HASH_LEN);
+    free(hash);
 
     FILE *fp = fopen(vault_path, "wb");
     if (!fp) {
-        util_log(ERROR, "Failed to open vault.bin for writing");
-        free(nonce);
-        free(tag);
-        free(ciphertext);
+        util_log(ERROR, "Failed to open vault for writing");
+        free(write_buf);
+        free(hdr);
+        return false;
+    }
+
+    fwrite(write_buf, 1, HEADER_LEN + hdr->ciphertext_len, fp);
+    fclose(fp);
+    free(hdr);
+
+    return true;
+}
+
+bool storage_write_user_vault() {
+
+    char *vault_path = storage_get_user_vault_path(username);
+    if (!util_check_ptr(vault_path, "Failed to get user vault path")) 
+        return false;
+
+    uint8_t *salt = get_user_salt();
+    if (!util_check_ptr(salt, "Failed to retrieve salt")) {
         free(vault_path);
         return false;
     }
 
-    fwrite(nonce, 1, 12, fp);
-    fwrite(tag,   1, 16, fp);
-    fwrite(ciphertext, 1, ciphertext_len, fp);
-
-    fclose(fp);
-    free(ciphertext);
-    free(nonce);
-    free(tag);
+    bool res = storage_write_vault(vault_path, entries, num_entries, salt);
+    
     free(vault_path);
+    free(salt);
 
-    return true;
+    return res;
 }
 
-int storage_assign_new_id() {
+int storage_get_next_id() {
     int current_id = 0;
     for (int i = 0; i < num_entries; i++) current_id = MAX(current_id, i[entries].id); // fun c tricks with arrays :)
+
+    // run id 'defrag' routine to consolidate ids if they have run excessively high
+    if (current_id > num_entries * 3 || (num_entries > 10000 && current_id > num_entries + 200)) {
+        for (int i = 0; i < num_entries; i++)
+            entries[i].id = i + 1;
+        storage_write_user_vault();
+        return num_entries + 1;
+    }
+
     return current_id + 1;
 }
 
@@ -757,7 +928,7 @@ PasswdEntry *storage_get_entry(int id) {
         if (entries[i].id == id)
             return &entries[i];
     
-    util_log(ERROR, "Failed to find password entry from id: invalid id");
+    util_log(ERROR, "Failed to fetch password entry from id: invalid id");
     return NULL;
 }
 
@@ -774,8 +945,6 @@ bool add_entry(PasswdEntry *entry) {
             return false;
         }
     }
-    
-    Metadata *md = storage_read_user_metadata();
 
     num_entries++;
 
@@ -797,21 +966,10 @@ bool add_entry(PasswdEntry *entry) {
 
     qsort(entries, num_entries, sizeof(PasswdEntry), compare_entries_by_service); // sort entries
 
-    if (!storage_write_user_vault(md)) {
+    if (!storage_write_user_vault()) {
         util_log(ERROR, "Failed to write expanded entry list; this session will not be saved properly");
         return false;
     }
-
-    md->last_modified = time(NULL);
-    md->num_entries = num_entries;
-
-    if (!storage_write_metadata(md)) {
-        util_log(ERROR, "Failed to update metadata.json; entry count will be inaccurate");
-        free(md);
-        return false;
-    }
-
-    free(md);
 
     return true;
 }
@@ -840,11 +998,8 @@ bool delete_entry(int id) {
     wipe_mem(entries[index].notes, strlen(entries[index].notes));
     free(entries[index].notes);
 
-    for (int j = index; j < num_entries - 1; j++) {
+    for (int j = index; j < num_entries - 1; j++)
         entries[j] = entries[j + 1];
-    }
-
-    Metadata *md = storage_read_user_metadata();
 
     num_entries--;
     PasswdEntry *new_entries = ec_realloc(entries, sizeof(PasswdEntry) * num_entries);
@@ -852,21 +1007,10 @@ bool delete_entry(int id) {
         return false;
     entries = new_entries;
 
-    md->num_entries = num_entries;
-    md->last_modified = time(NULL);
-
-    if (!storage_write_metadata(md)) {
-        util_log(ERROR, "Failed to write new metadata.json");
-        free(md);
-        return false;
-    }
-    if (!storage_write_user_vault(md)) {
+    if (!storage_write_user_vault()) {
         util_log(ERROR, "Failed to write updated user vault");
-        free(md);
         return false;
     }
-
-    free(md);
 
     return true;
 }
@@ -898,14 +1042,7 @@ bool update_entry(int id, PasswdEntry *new_entry) {
 
     qsort(entries, num_entries, sizeof(PasswdEntry), compare_entries_by_service);
 
-    Metadata *md = storage_read_user_metadata();
-    md->last_modified = time(NULL);
-    if (!storage_write_metadata(md)) {
-        util_log(ERROR, "Failed to write updated metadata.json");
-        return false;
-    }
-    
-    if (!storage_write_user_vault(md)) {
+    if (!storage_write_user_vault()) {
         util_log(ERROR, "Failed to update user vault; edits will not be saved to disk");
         return false;
     }

@@ -10,9 +10,6 @@ extern const char PATH_SEPARATOR;
 #define X(x) (void)(x) // suppress 'unused parameter' compiler warnings with void cast
 #define UNIMPLEMENTED util_error("This function is currently unimplemented") // mark a function as unimplemented
 
-#define STORAGE_SCHEMA_VERSION 1
-#define SALT_LEN 16
-
 enum ErrorType {
     WARN_D,
     NONFATAL_D,
@@ -32,6 +29,8 @@ typedef enum LogLevel LogLevel;
 
 char *util_get_app_dir();
 char *util_get_logfile();
+char *util_get_prefs_file();
+char *util_get_accounts_file();
 int dir_exists(const char *path);
 bool delete_recursive(const char *path, GError **error);
 

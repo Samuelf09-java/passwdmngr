@@ -57,6 +57,22 @@ char *util_get_logfile() {
     return ret;
 }
 
+char *util_get_prefs_file() {
+    char *basedir = util_get_app_dir();
+    char *ret = ec_malloc(strlen(basedir) + strlen("preferences.json") + 1);
+    sprintf(ret, "%spreferences.json", basedir);
+    free(basedir);
+    return ret;
+}
+
+char *util_get_accounts_file() {
+    char *basedir = util_get_app_dir();
+    char *ret = ec_malloc(strlen(basedir) + strlen("accounts.bin") + 1);
+    sprintf(ret, "%saccounts.bin", basedir);
+    free(basedir);
+    return ret;
+}
+
 int dir_exists(const char *path) {
     return g_file_test(path, G_FILE_TEST_IS_DIR);
 }
@@ -67,7 +83,7 @@ bool delete_recursive(const char *path, GError **error) {
     // Check if directory exists
     if (!g_file_query_exists(dir, NULL)) {
         g_object_unref(dir);
-        return TRUE;
+        return true;
     }
 
     // Enumerate children

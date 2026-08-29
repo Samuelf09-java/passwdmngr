@@ -2,6 +2,7 @@
 #include <sodium.h>
 #include "ui/login_window.h"
 #include "ui/main_window.h"
+#include "crypto.h"
 #include "storage.h"
 #include "util.h"
 #include "main.h"
@@ -10,7 +11,6 @@ AppMode mode;
 
 GtkApplication *passwdmngr = NULL;
 GtkWindow *root_window = NULL;
-char *accounts_path = NULL;
 
 static bool app_init() {
 
@@ -25,36 +25,58 @@ static bool app_init() {
     // Verify app files are present
     char *root = util_get_app_dir();
     if (!root) {
-        util_log(FATAL, "Could not determine user data directory.");
+        util_log(FATAL, "Could not determine app data directory.");
         return false;
     }
 
-    if (!dir_exists(root)) g_mkdir_with_parents(root, 0755);
+    if (!dir_exists(root)) {
+        g_mkdir_with_parents(root, 0755);
+        util_log(DEBUG, "App dir does not exist; creating it (first install or data wipe)");
+    }
 
-    char *users_dir = ec_malloc(strlen(root) + strlen("users") + 1);
-    sprintf(users_dir, "%susers", root);
-    if (!dir_exists(users_dir)) g_mkdir_with_parents(users_dir, 0755);
+    char *user_vaults_dir = ec_malloc(strlen(root) + strlen("vaults") + 1);
+    sprintf(user_vaults_dir, "%svaults", root);
+    if (!dir_exists(user_vaults_dir))
+        g_mkdir_with_parents(user_vaults_dir, 0755);
 
-    accounts_path = ec_malloc(strlen(root) + strlen("accounts.json") + 1);
-    sprintf(accounts_path, "%saccounts.json", root);
+    char *accounts_path = util_get_accounts_file();
+    char *pref_path = util_get_prefs_file();
 
     gchar *contents = NULL;
     gsize length = 0;
-
-    bool accounts_exists = g_file_get_contents(accounts_path, &contents, &length, NULL);
-
+    bool file_exists = g_file_get_contents(accounts_path, &contents, &length, NULL);
     g_free(contents);
+    contents = NULL;
 
-    // If accounts.json does not exist, write empty array
-    if (!accounts_exists || length == 0) init_accounts_json();
+    // If accounts.bin does not exist, write empty header
+    if (!file_exists || length == 0)
+        if (!init_accounts()) {
+            util_log(ERROR, "Failed to initialize accounts.bin");
+            free(accounts_path);
+            free(pref_path);
+            free(user_vaults_dir);
+            free(root);
+            return false;
+        }
 
-    free(users_dir);
+    contents = NULL;
+    length = 0;
+    file_exists = g_file_get_contents(pref_path, &contents, &length, NULL);
+    g_free(contents);
+    contents = NULL;
+
+    // Same for preferences.json
+    if (!file_exists || length == 0)
+        init_pref_json(pref_path);
+
+    free(accounts_path);
+    free(pref_path);
+    free(user_vaults_dir);
     free(root);
 
-    // Load accounts.json
+    // Load accounts.bin
     if (!load_accounts()) {
-        free(accounts_path);
-        util_log(FATAL, "Failed to load account data from accounts.json; see stderr for more information");
+        util_log(FATAL, "Failed to load account data from accounts.bin; check log for more information");
         return false;
     }
 
@@ -114,7 +136,8 @@ static void on_shutdown(GApplication *app, gpointer user_data) {
         username = NULL;
     }
 
-    free_accounts();
+    if (accounts)
+        free(accounts);
 
     util_log(INFO, "App shut down (cleanup successful)");
 }
@@ -137,7 +160,7 @@ static int run_cli(int argc, char **argv) {
     exit(0);
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv) {    
 
     if (argc > 1) {
         if (!strcmp(argv[1], "--cli")) {

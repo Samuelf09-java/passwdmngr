@@ -17,6 +17,12 @@ static void on_login_clicked(GtkButton *button, LoginWindow *self) {
         username = strdup(uname);
         tmp_passwd = strdup(passwd);
 
+        curr_prefs = get_user_prefs((char *)uname);
+        if (!curr_prefs) {
+            util_fatal_d("Failed to load user preferences!");
+            return;
+        }
+
         MainWindow *mainwin = g_object_new(MAIN_WINDOW_TYPE, NULL);
         register_actions(mainwin);
         gtk_window_set_child(GTK_WINDOW(root_window), GTK_WIDGET(mainwin));

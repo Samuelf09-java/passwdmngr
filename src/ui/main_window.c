@@ -1,5 +1,4 @@
 #include <string.h>
-#include <zip.h>
 #include "ui/main_window.h"
 #include "ui/login_window.h"
 #include "crypto.h"
@@ -30,12 +29,9 @@ typedef struct _ChooseEntriesDialogData {
 typedef struct _ImportPasswdDialogData {
     GtkWidget *dialog;
     GtkWidget *pass_entry;
-    uint8_t *ciphertext;
-    uint8_t *nonce;
-    uint8_t *tag;
-    uint8_t *salt;
+    char *vault_path;
+    VaultHeader *header;
     PasswdEntry *import_entries;
-    int ciphertext_len;
     int num_import_entries;
 } ImportPasswdDialogData;
 
@@ -120,7 +116,7 @@ static void on_delete_response(GObject *source, GAsyncResult *result, gpointer u
     g_object_unref(dialog);
 
     if (!delete_entry(entry_id)) {
-        util_nonfatal_d("Failed to delete entry; check passwdmngr.log for more information");
+        util_nonfatal_d("Failed to delete entry; check log for more information");
         return;
     }
 
@@ -210,7 +206,7 @@ static void on_edit_save(EntryEditBox *edit_box, MainWindow *self) {
 
     if (edit_box->edit_mode == ENTRY_ADD) {
         if (!add_entry(new_entry)) {
-            util_nonfatal_d("Failed to add entry; check passwdmngr.log for more information");
+            util_nonfatal_d("Failed to add entry; check log for more information");
             free(new_entry);
             free(service);
             free(new_username);
@@ -224,7 +220,7 @@ static void on_edit_save(EntryEditBox *edit_box, MainWindow *self) {
         free(password);
     } else if (edit_box->edit_mode == ENTRY_EDIT) {
         if (!update_entry(edit_box->entry_id, new_entry)) {
-            util_nonfatal_d("Failed to update entry; check passwdmngr.log for more information");
+            util_nonfatal_d("Failed to update entry; check log for more information");
             free(new_entry);
             free(service);
             free(new_username);
@@ -295,6 +291,9 @@ static void on_edit_cancel(EntryEditBox *edit_box, MainWindow *self) {
     gtk_box_append(GTK_BOX(self->content_area), GTK_WIDGET(none_box));
     gtk_widget_set_sensitive(GTK_WIDGET(self->add_entry_button), true);
     gtk_widget_set_sensitive(GTK_WIDGET(self->entries_listbox), true);
+
+    // id 'defrag' may have run, changing ids
+    reload_sidebar();
 }
 
 static void on_entry_selected(GtkListBox *box, GtkListBoxRow *row, MainWindow *self) {
@@ -355,7 +354,7 @@ static void on_add_entry_clicked(GtkButton *button, MainWindow *self) {
     g_signal_connect(edit_box, "save",   G_CALLBACK(on_edit_save),   self);
     g_signal_connect(edit_box, "cancel", G_CALLBACK(on_edit_cancel), self);
     edit_box->edit_mode = ENTRY_ADD;
-    edit_box->entry_id = storage_assign_new_id();
+    edit_box->entry_id = storage_get_next_id();
 
     gtk_box_append(GTK_BOX(self->content_area), GTK_WIDGET(edit_box));
 }
@@ -449,52 +448,23 @@ static void on_export_file_response(GObject *dialog, GAsyncResult *result, gpoin
         e2->password = strdup(e1->password);
         e2->notes    = strdup(e1->notes);
     }
-    
-    uint8_t *ciphertext = NULL;
-    int ciphertext_len  = 0;
-    uint8_t *nonce      = NULL;
-    uint8_t *tag        = NULL;
 
-    Metadata *md = storage_read_user_metadata();
-    util_check_ptr(md, "Failed to read user metadata");
-    if (!md) {
+    uint8_t *salt = get_user_salt();
+    if (!util_check_ptr(salt, "Failed to get user salt for export")) {
+        wipe_passwd_entries(export_entries, data->num_ids);
+        g_free(path);
         g_free(data);
         return;
     }
 
-    gsize salt_len;
-    uint8_t *salt = g_base64_decode(md->vault_salt, &salt_len);
-
-    encrypt_entries(export_entries, data->num_ids, salt, &ciphertext, &ciphertext_len, &nonce, &tag);
-
-    uint8_t *export_text = ec_malloc(ciphertext_len + 12 + 16 + salt_len);
-
-    uint8_t *p = export_text;
-
-    memcpy(p, nonce, 12);
-    p += 12;
-    memcpy(p, tag, 16);
-    p += 16;
-    memcpy(p, salt, salt_len);
-    p += salt_len;
-    memcpy(p, ciphertext, ciphertext_len);
-
-    int err = 0;
-    zip_t *zip = zip_open(path, ZIP_CREATE | ZIP_TRUNCATE, &err);
-    zip_source_t *src = zip_source_buffer(zip, export_text, ciphertext_len + 12 + 16 + salt_len, 0);
-    zip_file_add(zip, "data", src, ZIP_FL_OVERWRITE);
-    zip_close(zip);
-
+    storage_write_vault(path, export_entries, data->num_ids, salt);
+    
     util_log(INFO, "Exported %d entries to %s", data->num_ids, path);
-
-    g_free(path);
-    g_free(salt);
-    free(ciphertext);
-    free(nonce);
-    free(tag);
+    
     wipe_passwd_entries(export_entries, data->num_ids);
+    free(salt);
+    g_free(path);
     g_free(data);
-    free(export_text);
 }
 
 
@@ -616,7 +586,7 @@ static void on_confirm_rename_entry_clicked(GtkButton *button, gpointer user_dat
     PasswdEntry *entry = &(context->mode_data->import_entries[context->current_index]);
     free(entry->service);
     entry->service = strdup(new_service);
-    entry->id = storage_assign_new_id();
+    entry->id = storage_get_next_id();
     add_entry(entry);
     reload_sidebar();
 
@@ -761,14 +731,8 @@ static void on_confirm_import_mode_clicked(GtkButton *button, gpointer user_data
                 break;
             }
 
-            uint8_t *ciphertext = NULL;
-            int ciphertext_len  = 0;
-            uint8_t *nonce      = NULL;
-            uint8_t *tag        = NULL;
-
-            Metadata *md = storage_read_user_metadata();
-            util_check_ptr(md, "Failed to read user metadata");
-            if (!md) {
+            uint8_t *salt = get_user_salt();
+            if (!util_check_ptr(salt, "Failed to get user salt for backup data")) {
                 gtk_window_destroy(GTK_WINDOW(data->dialog));
                 if (data->import_entries)
                     wipe_passwd_entries(data->import_entries, data->num_import_entries);
@@ -777,47 +741,18 @@ static void on_confirm_import_mode_clicked(GtkButton *button, gpointer user_data
                 return;
             }
 
-            gsize salt_len;
-            uint8_t *salt = g_base64_decode(md->vault_salt, &salt_len);
-
-            encrypt_entries(entries, num_entries, salt, &ciphertext, &ciphertext_len, &nonce, &tag);
-
-            uint8_t *export_text = ec_malloc(ciphertext_len + 12 + 16 + salt_len);
-            uint8_t *p = export_text;
-
-            memcpy(p, nonce, 12);
-            p += 12;
-            memcpy(p, tag, 16);
-            p += 16;
-            memcpy(p, salt, salt_len);
-            p += salt_len;
-            memcpy(p, ciphertext, ciphertext_len);        
-
-            int err = 0;
-            zip_t *zip = zip_open(backup_path, ZIP_CREATE | ZIP_TRUNCATE, &err);
-            zip_source_t *src = zip_source_buffer(zip, export_text, ciphertext_len + 12 + 16 + salt_len, 0);
-            zip_file_add(zip, "data", src, ZIP_FL_OVERWRITE);
-            zip_close(zip);
+            storage_write_vault(backup_path, entries, num_entries, salt);
 
             util_log(INFO, "Exported %d entries to backup file %s", num_entries, backup_path);
 
             free(backup_path);
-            g_free(salt);
-            free(ciphertext);
-            free(nonce);
-            free(tag);
             wipe_passwd_entries(entries, num_entries);
-            free(export_text);
             
             // replace data
             entries = data->import_entries;
             num_entries = data->num_import_entries;
-            md->num_entries = data->num_import_entries;
-            md->last_modified = time(NULL);
-            storage_write_metadata(md);
-            storage_write_user_vault(md);
+            storage_write_user_vault();
 
-            free(md);
             util_log(INFO, "Import complete: %d entries imported", data->num_import_entries);
             gtk_window_destroy(GTK_WINDOW(data->dialog));
             g_free(data);
@@ -874,6 +809,7 @@ static void on_confirm_import_mode_clicked(GtkButton *button, gpointer user_data
                         return;
                     }
                 } else {
+                    data->import_entries[i].id = storage_get_next_id();
                     add_entry(&(data->import_entries[i]));
                     reload_sidebar();
                     util_log(DEBUG, "Added entry '%s' from imported file", data->import_entries[i].service);
@@ -1048,10 +984,7 @@ static void on_cancel_importpasswd_clicked(GtkButton *button, gpointer user_data
     util_log(DEBUG, "Import canceled (no password entered)");
     ImportPasswdDialogData *data = (ImportPasswdDialogData *)user_data;
     gtk_window_destroy(GTK_WINDOW(data->dialog));
-    free(data->ciphertext);
-    free(data->nonce);
-    free(data->tag);
-    free(data->salt);
+    free(data->header);
     if (data->import_entries)
         wipe_passwd_entries(data->import_entries, data->num_import_entries);
     free(data);
@@ -1065,35 +998,30 @@ static void on_confirm_importpasswd_clicked(GtkButton *button, gpointer user_dat
     char *passwd = (char *)gtk_editable_get_text(GTK_EDITABLE(data->pass_entry));
     uint8_t key[32];
 
-    if (!derive_vault_key(passwd, data->salt, key, sizeof(key))) {
+    if (!derive_vault_key(passwd, data->header->salt, key, sizeof(key))) {
         util_nonfatal_d("Failed to derive vault key from user-provided password");
-        free(data->ciphertext);
-        free(data->nonce);
-        free(data->tag);
-        free(data->salt);
+        free(data->header);
+        g_free(data->vault_path);
         if (data->import_entries)
             wipe_passwd_entries(data->import_entries, data->num_import_entries);
         free(data);
         return;
     }
 
-    if (!decrypt_entries_with_key(key, data->ciphertext, data->ciphertext_len, data->nonce, data->tag, &(data->import_entries), &(data->num_import_entries))) {
+    data->num_import_entries = storage_read_vault_with_key(data->vault_path, key, &(data->import_entries), &(data->header));
+
+    if (data->num_import_entries <= 0) {
         util_nonfatal_d("Failed to decrypt imported entries");
-        free(data->ciphertext);
-        free(data->nonce);
-        free(data->tag);
-        free(data->salt);
+        free(data->header);
         if (data->import_entries)
             wipe_passwd_entries(data->import_entries, data->num_import_entries);
+        g_free(data->vault_path);
         free(data);
         return;
     }
 
-    free(data->ciphertext);
-    free(data->nonce);
-    free(data->tag);
-    free(data->salt);
-
+    free(data->header);
+    g_free(data->vault_path);
     do_import_with_decrypted_data(data->import_entries, data->num_import_entries);
 
     free(data);
@@ -1111,65 +1039,12 @@ static void on_file_import_response(GObject *dialog, GAsyncResult *result, gpoin
 
     char *path = g_file_get_path(file);
 
-    zip_t *zip = zip_open(path, ZIP_RDONLY, NULL);
-    if (!zip) {
-        util_nonfatal_d("Failed to open zip file");
-        return;
-    }
-
-    zip_int64_t idx = zip_name_locate(zip, "data", 0);
-    if (idx < 0) {
-        util_nonfatal_d("Failed to locate 'data' inside zip");
-        zip_close(zip);
-        return;
-    }
-
-    zip_file_t *zf = zip_fopen_index(zip, idx, 0);
-    if (!zf) {
-        util_nonfatal_d("Failed to open zip entry");
-        zip_close(zip);
-        return;
-    }
-
-    zip_stat_t st;
-    zip_stat_init(&st);
-    zip_stat_index(zip, idx, 0, &st);
-
-    // will contain data with format [ nonce | tag | salt | ciphertext ]
-    uint8_t *buf = ec_malloc(st.size);
-
-    zip_int64_t n = zip_fread(zf, buf, st.size);
-    if (n < 0 || n != (zip_int64_t)st.size) {
-        util_nonfatal_d("Failed to read zip entry");
-        free(buf);
-        zip_fclose(zf);
-        zip_close(zip);
-        return;
-    }
-
-    zip_fclose(zf);
-    zip_close(zip);
-    g_free(path);
-
-    uint8_t nonce[12];
-    uint8_t tag[16];
-    uint8_t *salt;
-    uint8_t *ciphertext;
     
-    uint8_t *p = buf;
-    memcpy(nonce, p, 12);
-    p += 12;
-    memcpy(tag, p, 16);
-    p += 16;
-    salt = p;
-    p += SALT_LEN;
-    ciphertext = p;
-    size_t ciphertext_len = st.size - (12 + 16 + SALT_LEN);
-
     PasswdEntry *import_entries = NULL;
-    int num_import_entries = 0;
+    VaultHeader *hdr = NULL;
+    int num_import_entries = storage_read_vault(path, &import_entries, &hdr);
 
-    if (!decrypt_entries(salt, ciphertext, ciphertext_len, nonce, tag, &import_entries, &num_import_entries)) {
+    if (num_import_entries <= 0) {
         util_log(WARN, "Failed to decrypt imported entries with current user's information; trying again with user-defined key info");
         
         // retrieve password for second key attempt
@@ -1186,26 +1061,18 @@ static void on_file_import_response(GObject *dialog, GAsyncResult *result, gpoin
 
         data->dialog             = dialog;
         data->pass_entry         = pass_entry;
-        data->ciphertext         = ec_malloc(ciphertext_len);
-        memcpy(data->ciphertext, ciphertext, ciphertext_len);
-        data->ciphertext_len     = ciphertext_len;
-        data->nonce              = ec_malloc(12);
-        memcpy(data->nonce, nonce, 12);
-        data->tag                = ec_malloc(16);
-        memcpy(data->tag, tag, 16);
-        data->salt               = ec_malloc(SALT_LEN);
-        memcpy(data->salt, salt, SALT_LEN);
+        data->vault_path         = path;
+        data->header             = hdr;
         data->import_entries     = import_entries;
         data->num_import_entries = num_import_entries;
-
-        free(buf);
         
         g_signal_connect(cancel_btn, "clicked", G_CALLBACK(on_cancel_importpasswd_clicked), data);
         g_signal_connect(conf_btn, "clicked", G_CALLBACK(on_confirm_importpasswd_clicked), data);
 
         gtk_window_present(GTK_WINDOW(dialog));
     } else {
-        free(buf);
+        free(hdr);
+        g_free(path);
         do_import_with_decrypted_data(import_entries, num_import_entries);
     }
 }
@@ -1251,7 +1118,7 @@ static void on_confirm_changepasswd_clicked (GtkButton *button, gpointer user_da
     }
 
     if (!storage_change_passwd(username, (char *)new_pass)) {
-        util_fatal_d("Failed to change password; check passwdmngr.log for more information");
+        util_fatal_d("Failed to change password; check log for more information");
         return;
     }
 
@@ -1288,7 +1155,7 @@ static void on_confirm_deleteacc_clicked(GtkButton *button, gpointer user_data) 
         logout_cb(NULL, NULL, MAIN_WINDOW(gtk_window_get_child(root_window)));
 
         if (!storage_delete_account((char *)conf_username)) {
-            util_fatal_d("Failed to delete account; check passwdmngr.log for more information");
+            util_fatal_d("Failed to delete account; check log for more information");
             return;
         }
 
@@ -1468,6 +1335,11 @@ static void logout_cb(GSimpleAction *action, GVariant *parameter, gpointer user_
 
     free(username);
     username = NULL;
+    
+    if (curr_prefs) {
+        free(curr_prefs);
+        curr_prefs = NULL;
+    }
 
     util_log(DEBUG, "Cleared all user-specific globals from storage.c");
     
@@ -1602,12 +1474,8 @@ static void main_window_init(MainWindow *self) {
     gtk_window_set_title(GTK_WINDOW(root_window), title);
     free(title);
 
-    Metadata *md = storage_read_user_metadata();
-    if (!md) util_fatal_d("Could not read user's metadata");
-    
-    if (md->version != STORAGE_SCHEMA_VERSION) util_fatal_d("Invalid storage schema version; update with porting tool if applicable");
-
-    if (!storage_read_user_vault(md)) util_fatal_d("Failed to read user vault; check passwdmngr.log for more information");
+    if (!storage_read_user_vault())
+        util_fatal_d("Failed to read user vault; check log for more information");
 
     box_remove_children(GTK_BOX(self->content_area));
     GtkWidget *none_box = g_object_new(ENTRY_NONE_BOX_TYPE, NULL);
