@@ -70,6 +70,7 @@ $(LINENOISE_OUT_LIB):
 		mkdir -p $(LINENOISE_OUT); \
 		cp $(LINENOISE_BUILD)/lib*.a $(LINENOISE_OUT_LIB); \
 		rm -rf $(LINENOISE_BUILD); \
+		cp external/linenoise-ng/include/linenoise.h include/linenoise.h; \
 	fi
 
 linenoise: $(LINENOISE_OUT_LIB)
