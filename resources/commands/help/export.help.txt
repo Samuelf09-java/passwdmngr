@@ -1,0 +1,13 @@
+Export entries to external .pwmngr file
+
+Aliases:
+  exp
+
+Arguments:
+  path (string, optional): path to export to; if path ends in '/'
+    (i.e. it is a directory), the default file name will be used.
+    If no path is provided, the export will be in the base app directory
+    (~/.local/share/passwdmngr on linux, %LOCALAPPDATA%\passwdmngr on windows)
+  id_list (string, optional): list of comma-separated ids
+    like "1,2,5,7"; assumes all entries should be exported if
+    no list is provided, or if list contains only "*" or "all"

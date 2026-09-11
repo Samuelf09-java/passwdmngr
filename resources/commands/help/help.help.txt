@@ -1,0 +1,5 @@
+Show general or command-specific help
+
+Arguments:
+  cmd (string, optional): command to display help for
+    (default = show general help)

@@ -1,0 +1,12 @@
+Inspect .pwmngr or accounts.bin files
+
+Aliases:
+  examine
+  insp
+  x
+
+Arguments:
+  path (string): path to file to inspect
+
+Flags:
+  --hexdump: display data in one large hexadecimal dump

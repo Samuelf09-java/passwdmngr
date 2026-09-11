@@ -1,24 +1,24 @@
-#include <json-glib/json-glib.h>
 #include "storage.h"
 #include "crypto.h"
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <sodium.h>
-#include <sys/stat.h>
-#include "util.h"
 #include "main.h"
+#include "util.h"
+#include <json-glib/json-glib.h>
+#include <sodium.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
 
-int num_accounts;
-Account *accounts = NULL;
-PasswdEntry *entries = NULL;
+int          num_accounts;
+Account     *accounts = NULL;
+PasswdEntry *entries  = NULL;
 
-char *tmp_passwd = NULL;
+char   *tmp_passwd = NULL;
 uint8_t aes_key[32];
-bool key_set = false;
+bool    key_set = false;
 
-char *username = NULL;
-int num_entries = -1;
+char *username    = NULL;
+int   num_entries = 0;
 
 UserPref *curr_prefs = NULL;
 
@@ -31,7 +31,7 @@ static int compare_entries_by_service(const void *a, const void *b) { // Sort al
 bool load_accounts() {
 
     char *accounts_path = util_get_accounts_file();
-    FILE *fp = fopen(accounts_path, "rb");
+    FILE *fp            = fopen(accounts_path, "rb");
 
     fseek(fp, 0, SEEK_END);
     long fsize = ftell(fp);
@@ -70,25 +70,26 @@ bool load_accounts() {
     }
 
     uint8_t *hash = sha_256_hash(accounts_buf + 10 + HASH_LEN, fsize - 10 - HASH_LEN);
-    if (!util_check_ptr(hash, "Failed to hash vault data!")) {
+    if (!util_check_ptr(hash, "Failed to hash accounts data!")) {
         free(accounts_buf);
         return false;
     }
 
     if (memcmp(hdr->hash, hash, HASH_LEN)) {
-        util_log(FATAL, "Could not verify vault integrity; hashes do not match!");
-        free(hash);
-        free(accounts_buf);
-        return false;
+        util_log(FATAL, "Could not verify accounts.bin integrity; hashes do not match!");
+        // free(hash);
+        // free(accounts_buf);
+        // return false;
     }
 
     free(hash);
 
     num_accounts = hdr->num_accounts;
-    accounts = ec_malloc(sizeof(Account) * num_accounts);
-    int i = 0;
+    accounts     = ec_malloc(sizeof(Account) * num_accounts);
+    int i        = 0;
 
-    for (uint8_t *p = accounts_buf + sizeof(AccountHeader); p < accounts_buf + sizeof(AccountHeader) + num_accounts * sizeof(Account); p += sizeof(Account))
+    for (uint8_t *p = accounts_buf + sizeof(AccountHeader);
+         p < accounts_buf + sizeof(AccountHeader) + num_accounts * sizeof(Account); p += sizeof(Account))
         memcpy(&accounts[i++], p, sizeof(Account));
 
     free(accounts_buf);
@@ -100,10 +101,11 @@ bool init_accounts() {
 
     AccountHeader *hdr = ec_malloc(sizeof(AccountHeader));
     memcpy(hdr->magic, ACCOUNTS_MAGIC, 6);
-    hdr->version = ACCOUNTS_SCHEMA_VERSION;
+    hdr->version      = ACCOUNTS_SCHEMA_VERSION;
     hdr->num_accounts = 0;
-    
-    uint8_t *hash = sha_256_hash((uint8_t *)(hdr + sizeof(AccountHeader) - 10 - HASH_LEN), sizeof(AccountHeader) - 10 - HASH_LEN);
+
+    uint8_t *hash =
+        sha_256_hash((uint8_t *)(hdr + sizeof(AccountHeader) - 10 - HASH_LEN), sizeof(AccountHeader) - 10 - HASH_LEN);
     if (!util_check_ptr(hash, "Failed to hash accounts header")) {
         free(hdr);
         return false;
@@ -136,8 +138,8 @@ void init_pref_json(char *pref_path) {
     json_builder_end_array(builder);
     json_builder_end_object(builder);
 
-    JsonGenerator *gen = json_generator_new();
-    JsonNode *root = json_builder_get_root(builder);
+    JsonGenerator *gen  = json_generator_new();
+    JsonNode      *root = json_builder_get_root(builder);
 
     json_generator_set_root(gen, root);
     json_generator_to_file(gen, pref_path, NULL);
@@ -149,28 +151,30 @@ void init_pref_json(char *pref_path) {
 
 void save_accounts() {
 
-    uint8_t *write_buf = ec_malloc(sizeof(AccountHeader) + sizeof(Account) * num_accounts);
-    AccountHeader *hdr = (AccountHeader *)write_buf;
+    uint8_t       *write_buf = ec_malloc(sizeof(AccountHeader) + sizeof(Account) * num_accounts);
+    AccountHeader *hdr       = (AccountHeader *)write_buf;
 
     memcpy(hdr->magic, ACCOUNTS_MAGIC, 6);
-    hdr->version = ACCOUNTS_SCHEMA_VERSION;
+    hdr->version      = ACCOUNTS_SCHEMA_VERSION;
     hdr->num_accounts = num_accounts;
 
     int i = 0;
-    for (uint8_t *p = write_buf + sizeof(AccountHeader); p < write_buf + sizeof(AccountHeader) + sizeof(Account) * num_accounts; p += sizeof(Account))
+    for (uint8_t *p = write_buf + sizeof(AccountHeader);
+         p < write_buf + sizeof(AccountHeader) + sizeof(Account) * num_accounts; p += sizeof(Account))
         memcpy(p, &accounts[i++], sizeof(Account));
 
-    uint8_t *hash = sha_256_hash(write_buf + 10 + HASH_LEN, sizeof(AccountHeader) - 10 - HASH_LEN);
+    uint8_t *hash =
+        sha_256_hash(write_buf + 10 + HASH_LEN, sizeof(AccountHeader) - 10 - HASH_LEN + sizeof(Account) * num_accounts);
     if (!util_check_ptr(hash, "Failed to hash account data for writing to accounts.bin")) {
         free(write_buf);
         return;
     }
-    
+
     memcpy(hdr->hash, hash, HASH_LEN);
     free(hash);
 
     char *accounts_path = util_get_accounts_file();
-    FILE *fp = fopen(accounts_path, "wb");
+    FILE *fp            = fopen(accounts_path, "wb");
     free(accounts_path);
     if (!util_check_ptr(fp, "Failed to open accounts file for writing")) {
         free(write_buf);
@@ -194,8 +198,8 @@ int storage_read_prefs(UserPref **prefs) {
         return -2;
     }
 
-    JsonNode *root = json_parser_get_root(parser);
-    JsonObject *obj = json_node_get_object(root);
+    JsonNode   *root = json_parser_get_root(parser);
+    JsonObject *obj  = json_node_get_object(root);
 
     JsonArray *prefs_array = json_object_get_array_member(obj, "preferences");
     if (!util_check_ptr(prefs_array, "preferences.json missing 'preferences' array")) {
@@ -204,7 +208,7 @@ int storage_read_prefs(UserPref **prefs) {
     }
 
     int num_prefs = json_array_get_length(prefs_array);
-    *prefs = ec_malloc(sizeof(UserPref) * num_prefs);
+    *prefs        = ec_malloc(sizeof(UserPref) * num_prefs);
 
     for (int i = 0; i < num_prefs; i++) {
         JsonObject *entry = json_array_get_object_element(prefs_array, i);
@@ -213,7 +217,7 @@ int storage_read_prefs(UserPref **prefs) {
 
         (*prefs)[i].uname_hash = strdup(uname_hash);
     }
-    
+
     g_object_unref(parser);
     return num_prefs;
 }
@@ -237,8 +241,8 @@ bool storage_save_prefs(UserPref *prefs, int num_prefs) {
     json_builder_end_array(builder);
     json_builder_end_object(builder);
 
-    JsonGenerator *gen = json_generator_new();
-    JsonNode *root = json_builder_get_root(builder);
+    JsonGenerator *gen  = json_generator_new();
+    JsonNode      *root = json_builder_get_root(builder);
 
     json_generator_set_root(gen, root);
     json_generator_set_pretty(gen, true);
@@ -272,9 +276,9 @@ UserPref *get_user_prefs(char *uname) {
     char *uname_hash = hash_uname(uname);
     if (!util_check_ptr(uname_hash, "Failed to hash username to get preferences"))
         return NULL;
-    
-    UserPref *prefs = NULL;
-    int num_prefs = storage_read_prefs(&prefs);
+
+    UserPref *prefs     = NULL;
+    int       num_prefs = storage_read_prefs(&prefs);
 
     for (int i = 0; i < num_prefs; i++)
         if (!strcmp(prefs[i].uname_hash, uname_hash)) {
@@ -287,55 +291,14 @@ UserPref *get_user_prefs(char *uname) {
 
     // if we reach here, user has no entry; use defaults
 
-    free(prefs);
-    
-    UserPref *pref = ec_malloc(sizeof(UserPref));
+    if (prefs)
+        free(prefs);
+
+    UserPref *pref   = ec_malloc(sizeof(UserPref));
     pref->uname_hash = uname_hash;
     // fill in other defaults as needed
 
     return pref;
-}
-
-static bool init_user_vault() {
-    VaultHeader *hdr = ec_malloc(HEADER_LEN);
-    memcpy(hdr->magic, VAULT_MAGIC, 6);
-    hdr->version = VAULT_SCHEMA_VERSION;
-    hdr->num_entries = 0;
-    randombytes_buf(hdr->salt, sizeof(hdr->salt));
-
-    uint8_t *ciphertext = NULL;
-    uint8_t *nonce = NULL;
-    uint8_t *tag = NULL;
-
-    uint32_t clen = 0;
-    if (!encrypt_entries(NULL, 0, hdr->salt, &ciphertext, (int32_t *)&clen, &nonce, &tag)) {
-        util_log(ERROR, "Failed to encrypt dummy entries for vault init");
-        free(hdr);
-        return false;
-    }
-    hdr->ciphertext_len = clen;
-
-    memcpy(hdr->nonce, nonce, 12);
-    memcpy(hdr->tag,   tag,   16);
-    free(nonce);
-    free(tag);
-
-    hdr->timestamp = time(NULL);
-
-    uint8_t *write_buf = ec_malloc(HEADER_LEN + hdr->ciphertext_len);
-    memcpy(write_buf, hdr, HEADER_LEN);
-    memcpy(write_buf + HEADER_LEN, ciphertext, hdr->ciphertext_len);
-
-    // hash part of header + ciphertext
-    uint8_t *hash = sha_256_hash(write_buf + 10 + HASH_LEN, HEADER_LEN + hdr->ciphertext_len - 10 - HASH_LEN);
-    if (!util_check_ptr(hash, "Failed to hash data for vault init")) {
-        free(hdr);
-        free(write_buf);
-        return false;
-    }
-
-    memcpy(write_buf + 10, hash, HASH_LEN);
-    return true;
 }
 
 bool create_new_account(char *uname, char *passwd) {
@@ -372,7 +335,7 @@ bool create_new_account(char *uname, char *passwd) {
         return false;
     }
 
-    memcpy(accounts[num_accounts - 1].uname_hash,  new_uname_hash,  HASH_LEN);
+    memcpy(accounts[num_accounts - 1].uname_hash, new_uname_hash, HASH_LEN);
     memcpy(accounts[num_accounts - 1].passwd_hash, new_passwd_hash, HASH_LEN + SALT_LEN);
 
     free(new_uname_hash);
@@ -381,21 +344,20 @@ bool create_new_account(char *uname, char *passwd) {
     save_accounts();
 
     username = strdup(uname);
-    
-    char *vault_path = storage_get_user_vault_path(uname);
 
-    FILE *fp = fopen(vault_path, "a");
-    free(vault_path);
-    if (!fp) {
-        util_log(ERROR, "Failed to create vault file");
-        return false;
-    }
-    fclose(fp);
+    char    *vault_path = storage_get_user_vault_path(uname);
+    uint8_t *salt       = ec_malloc(SALT_LEN);
+    randombytes_buf(salt, SALT_LEN);
 
-    if (!init_user_vault()) {
+    if (!storage_write_vault(vault_path, NULL, 0, salt)) {
         util_log(ERROR, "Failed to initialize user vault!");
+        free(vault_path);
+        free(salt);
         return false;
     }
+
+    free(vault_path);
+    free(salt);
 
     util_log(INFO, "Created new account & vault; saved to accounts.bin");
 
@@ -406,7 +368,7 @@ static bool delete_user_data(char *uname) {
     char *vault_path = storage_get_user_vault_path(uname);
     if (!util_check_ptr(vault_path, "Failed to get user vault path"))
         return false;
-    
+
     GFile *vault = g_file_new_for_path(vault_path);
     free(vault_path);
     GError *err;
@@ -417,19 +379,19 @@ static bool delete_user_data(char *uname) {
     }
 
     g_object_unref(vault);
-    
+
     char *uname_hash = hash_uname(uname);
     if (!util_check_ptr(uname_hash, "Failed to hash username for preferences lookup"))
         return false;
 
-    UserPref *prefs = NULL;
-    int num_prefs = storage_read_prefs(&prefs);
+    UserPref *prefs     = NULL;
+    int       num_prefs = storage_read_prefs(&prefs);
     if (num_prefs < 0) {
         util_log(ERROR, "Failed to load user preferences");
         free(uname_hash);
         return false;
     }
-    
+
     for (int i = 0; i < num_prefs; i++)
         if (!strcmp(prefs[i].uname_hash, uname_hash)) {
             free(prefs[i].uname_hash);
@@ -461,7 +423,6 @@ bool storage_delete_account(char *uname) {
     for (int i = 0; i < num_accounts; i++) {
         if (!memcmp(accounts[i].uname_hash, uname_hash, HASH_LEN)) {
             free(uname_hash);
-            free(accounts + i);
 
             for (int j = i; j < num_accounts - 1; j++)
                 accounts[j] = accounts[j + 1];
@@ -500,7 +461,7 @@ bool storage_change_passwd(char *uname, char *new_pass) {
             save_accounts();
 
             // force reencryption with new key
-            key_set = false;
+            key_set    = false;
             tmp_passwd = strdup(new_pass);
             wipe_mem(aes_key, sizeof(aes_key));
 
@@ -514,9 +475,9 @@ bool storage_change_passwd(char *uname, char *new_pass) {
 }
 
 uint8_t *get_user_salt() {
-    char *vault_path = storage_get_user_vault_path(username);
-    VaultHeader *hdr = ec_malloc(HEADER_LEN);
-    FILE *fp = fopen(vault_path, "rb");
+    char        *vault_path = storage_get_user_vault_path(username);
+    VaultHeader *hdr        = ec_malloc(HEADER_LEN);
+    FILE        *fp         = fopen(vault_path, "rb");
     free(vault_path);
     if (!fp) {
         util_log(ERROR, "Failed to open vault file for reading salt");
@@ -533,9 +494,9 @@ uint8_t *get_user_salt() {
 
 char *storage_get_user_vault_path(char *uname) {
 
-    if (!util_check_ptr(uname, "Failed to build path to user vault: uname is NULL")) 
+    if (!util_check_ptr(uname, "Failed to build path to user vault: uname is NULL"))
         return NULL;
-    
+
     char *uname_hash = hash_uname(uname);
     if (!util_check_ptr(uname_hash, "Failed to hash username"))
         return NULL;
@@ -546,15 +507,130 @@ char *storage_get_user_vault_path(char *uname) {
         return NULL;
     }
 
-    int path_len = strlen(app_dir) + strlen("vaults") + 1 + strlen(uname_hash) + strlen(".pwmngr");
-    char *path = ec_malloc(path_len);
+    int   path_len = strlen(app_dir) + strlen("vaults") + 1 + strlen(uname_hash) + strlen(".pwmngr") + 1;
+    char *path     = ec_malloc(path_len);
     sprintf(path, "%svaults%c%s.pwmngr", app_dir, PATH_SEPARATOR, uname_hash);
     free(app_dir);
     free(uname_hash);
     return path;
 }
 
-bool encrypt_entries(PasswdEntry *entries, int num_entries, uint8_t *salt, uint8_t **ciphertext, int *ciphertext_len, uint8_t **nonce, uint8_t **tag) {
+/*
+ * yes, this has duplicate logic, but it makes more since for this to be
+ * in its own function, since the others return a PasswdEntry array built
+ * directly from json, and it would be more complicated to make them work
+ * off a function that just returns raw json
+ */
+int storage_dump_json(char *vault, char **out, uint8_t *key, bool pretty) {
+    FILE *fp = fopen(vault, "rb");
+    if (!fp) {
+        util_log(ERROR, "Failed to open vault");
+        return -1;
+    }
+
+    fseek(fp, 0, SEEK_END);
+    long fsize = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+
+    if (fsize <= (int64_t)HEADER_LEN) {
+        util_log(ERROR, "Vault is too small to contain any data!");
+        return -2;
+    }
+
+    uint8_t *vault_buf = ec_malloc(fsize);
+    fread(vault_buf, 1, fsize, fp);
+    fclose(fp);
+
+    VaultHeader *hdr = ec_malloc(HEADER_LEN);
+    memcpy(hdr, vault_buf, HEADER_LEN);
+
+    if (memcmp(hdr->magic, VAULT_MAGIC, 6)) { // invalid magic
+        util_log(FATAL, "Invalid file format! (wrong magic bytes)");
+        free(vault_buf);
+        return -3;
+    }
+
+    if (hdr->version != VAULT_SCHEMA_VERSION) {
+        util_log(FATAL, "Invalid file format! (wrong version)");
+        free(vault_buf);
+        return -4;
+    }
+
+    uint8_t *hash = sha_256_hash(vault_buf + 10 + HASH_LEN, fsize - 10 - HASH_LEN);
+    if (!util_check_ptr(hash, "Failed to hash vault data!")) {
+        free(vault_buf);
+        return -5;
+    }
+
+    if (memcmp(hdr->hash, hash, HASH_LEN)) {
+        util_log(FATAL, "Could not verify vault integrity; hashes do not match!");
+        free(hash);
+        free(vault_buf);
+        return -6;
+    }
+
+    free(hash);
+
+    uint8_t *ciphertext = vault_buf + HEADER_LEN;
+
+    if (key == NULL) {
+        if (!key_set) {
+            if (!derive_vault_key(tmp_passwd, hdr->salt, aes_key, sizeof(aes_key))) {
+                util_log(ERROR, "Failed to derive vault key");
+                return -9;
+            }
+
+            key_set = true;
+            wipe_mem(tmp_passwd, strlen(tmp_passwd));
+            free(tmp_passwd);
+            tmp_passwd = NULL;
+        }
+        key = aes_key;
+    }
+
+    uint8_t *plaintext = ec_malloc(hdr->ciphertext_len + 1);
+
+    int plaintext_len =
+        aes_gcm_decrypt(ciphertext, hdr->ciphertext_len, key, hdr->nonce, NONCE_LEN, hdr->tag, plaintext);
+    plaintext[plaintext_len] = 0;
+
+    free(vault_buf);
+    if (plaintext_len < 0) {
+        util_log(ERROR, "Vault decryption failed (wrong password/corrupted vault)");
+        free(plaintext);
+        return -7;
+    }
+
+    if (pretty) {
+        JsonParser *parser = json_parser_new();
+
+        if (!json_parser_load_from_data(parser, (char *)plaintext, -1, NULL)) {
+            util_log(ERROR, "Failed to parse JSON string");
+            g_object_unref(parser);
+            free(plaintext);
+            return -8;
+        }
+
+        JsonNode *root = json_parser_get_root(parser);
+
+        JsonGenerator *gen = json_generator_new();
+        json_generator_set_root(gen, root);
+        json_generator_set_pretty(gen, true);
+
+        *out = json_generator_to_data(gen, NULL);
+
+        g_object_unref(gen);
+        g_object_unref(parser);
+        free(plaintext);
+        return strlen(*out);
+    }
+
+    *out = (char *)plaintext;
+    return plaintext_len;
+}
+
+bool encrypt_entries(PasswdEntry *entries, int num_entries, uint8_t *salt, uint8_t **ciphertext, int *ciphertext_len,
+                     uint8_t **nonce, uint8_t **tag) {
     JsonBuilder *builder = json_builder_new();
     json_builder_begin_object(builder);
 
@@ -585,8 +661,8 @@ bool encrypt_entries(PasswdEntry *entries, int num_entries, uint8_t *salt, uint8
     json_builder_end_array(builder);
     json_builder_end_object(builder);
 
-    JsonGenerator *gen = json_generator_new();
-    JsonNode *root = json_builder_get_root(builder);
+    JsonGenerator *gen  = json_generator_new();
+    JsonNode      *root = json_builder_get_root(builder);
 
     json_generator_set_root(gen, root);
     char *json_data = json_generator_to_data(gen, NULL);
@@ -613,18 +689,10 @@ bool encrypt_entries(PasswdEntry *entries, int num_entries, uint8_t *salt, uint8
     randombytes_buf(*nonce, 12);
 
     int plaintext_len = strlen(json_data);
-    *ciphertext = ec_malloc(plaintext_len + 16);
-    *tag = ec_malloc(16);
+    *ciphertext       = ec_malloc(plaintext_len + 16);
+    *tag              = ec_malloc(16);
 
-    *ciphertext_len = aes_gcm_encrypt(
-        (uint8_t *) json_data,
-        plaintext_len,
-        aes_key,
-        *nonce,
-        12,
-        *ciphertext,
-        *tag
-    );
+    *ciphertext_len = aes_gcm_encrypt((uint8_t *)json_data, plaintext_len, aes_key, *nonce, 12, *ciphertext, *tag);
 
     g_free(json_data);
 
@@ -634,31 +702,26 @@ bool encrypt_entries(PasswdEntry *entries, int num_entries, uint8_t *salt, uint8
         free(*nonce);
         free(*tag);
         *ciphertext = NULL;
-        *nonce = NULL;
-        *tag = NULL;
+        *nonce      = NULL;
+        *tag        = NULL;
         return false;
     }
 
     return true;
 }
 
-bool decrypt_entries_with_key(uint8_t *key, uint8_t *ciphertext, int ciphertext_len, uint8_t *nonce, uint8_t *tag, PasswdEntry **entries, int *num_entries) {
+bool decrypt_entries_with_key(uint8_t *key, uint8_t *ciphertext, int ciphertext_len, uint8_t *nonce, uint8_t *tag,
+                              PasswdEntry **entries, int *num_entries) {
     uint8_t *plaintext = ec_malloc(ciphertext_len);
 
-    int plaintext_len = aes_gcm_decrypt(
-        ciphertext, ciphertext_len,
-        key,
-        nonce, 12,
-        tag,
-        plaintext
-    );
+    int plaintext_len = aes_gcm_decrypt(ciphertext, ciphertext_len, key, nonce, 12, tag, plaintext);
 
     if (plaintext_len < 0) {
         util_log(ERROR, "Vault decryption failed (wrong password/corrupted vault)");
         free(plaintext);
         return false;
     }
-    
+
     JsonParser *parser = json_parser_new();
     if (!json_parser_load_from_data(parser, (char *)plaintext, plaintext_len, NULL)) {
         util_log(ERROR, "Failed to load json from decrypted vault.bin");
@@ -666,10 +729,10 @@ bool decrypt_entries_with_key(uint8_t *key, uint8_t *ciphertext, int ciphertext_
         free(plaintext);
         return false;
     }
-    
-    JsonNode *root = json_parser_get_root(parser);
-    JsonObject *obj = json_node_get_object(root);
-    
+
+    JsonNode   *root = json_parser_get_root(parser);
+    JsonObject *obj  = json_node_get_object(root);
+
     JsonArray *entries_array = json_object_get_array_member(obj, "entries");
     if (!entries_array) {
         util_log(ERROR, "decrypted data missing 'entries' array");
@@ -678,7 +741,7 @@ bool decrypt_entries_with_key(uint8_t *key, uint8_t *ciphertext, int ciphertext_
     }
 
     *num_entries = json_array_get_length(entries_array);
-    
+
     *entries = ec_malloc(sizeof(PasswdEntry) * *num_entries);
     if (!entries) {
         util_log(ERROR, "malloc failed for passwdentry array");
@@ -688,19 +751,19 @@ bool decrypt_entries_with_key(uint8_t *key, uint8_t *ciphertext, int ciphertext_
     for (int i = 0; i < *num_entries; i++) {
         JsonObject *entry = json_array_get_object_element(entries_array, i);
 
-        int id               = json_object_get_int_member(   entry, "id");
+        int         id       = json_object_get_int_member(entry, "id");
         const char *service  = json_object_get_string_member(entry, "service");
         const char *username = json_object_get_string_member(entry, "username");
         const char *password = json_object_get_string_member(entry, "password");
         const char *notes    = json_object_get_string_member(entry, "notes");
 
-        (*entries)[i].id       =        id;
+        (*entries)[i].id       = id;
         (*entries)[i].service  = strdup(service);
         (*entries)[i].username = strdup(username);
         (*entries)[i].password = strdup(password);
         (*entries)[i].notes    = strdup(notes);
     }
-    
+
     g_object_unref(parser);
     free(plaintext);
 
@@ -708,7 +771,8 @@ bool decrypt_entries_with_key(uint8_t *key, uint8_t *ciphertext, int ciphertext_
 }
 
 // Uses current user's key
-bool decrypt_entries(uint8_t *salt, uint8_t *ciphertext, int ciphertext_len, uint8_t *nonce, uint8_t *tag, PasswdEntry **entries, int *num_entries) {
+bool decrypt_entries(uint8_t *salt, uint8_t *ciphertext, int ciphertext_len, uint8_t *nonce, uint8_t *tag,
+                     PasswdEntry **entries, int *num_entries) {
     if (!key_set) {
         if (!derive_vault_key(tmp_passwd, salt, aes_key, sizeof(aes_key))) {
             util_log(ERROR, "Failed to derive vault key");
@@ -730,11 +794,8 @@ int storage_read_vault_with_key(char *vault_path, uint8_t *key, PasswdEntry **en
     FILE *fp = fopen(vault_path, "rb");
     if (!fp) {
         util_log(ERROR, "Failed to open vault");
-        free(vault_path);
         return -1;
     }
-
-    free(vault_path);
 
     fseek(fp, 0, SEEK_END);
     long fsize = ftell(fp);
@@ -779,8 +840,8 @@ int storage_read_vault_with_key(char *vault_path, uint8_t *key, PasswdEntry **en
 
     free(hash);
 
-    uint8_t *ciphertext = vault_buf + HEADER_LEN;
-    int num_entries = -8;
+    uint8_t *ciphertext  = vault_buf + HEADER_LEN;
+    int      num_entries = -8;
 
     if (key == NULL) {
         if (!key_set) {
@@ -797,7 +858,8 @@ int storage_read_vault_with_key(char *vault_path, uint8_t *key, PasswdEntry **en
         key = aes_key;
     }
 
-    if (!decrypt_entries_with_key(key, ciphertext, (*hdr)->ciphertext_len, (*hdr)->nonce, (*hdr)->tag, entries, &num_entries)) {
+    if (!decrypt_entries_with_key(key, ciphertext, (*hdr)->ciphertext_len, (*hdr)->nonce, (*hdr)->tag, entries,
+                                  &num_entries)) {
         util_log(FATAL, "Failed to decrypt entries array");
         free(vault_buf);
         return -7;
@@ -808,7 +870,8 @@ int storage_read_vault_with_key(char *vault_path, uint8_t *key, PasswdEntry **en
 }
 
 int storage_read_vault(char *vault_path, PasswdEntry **entries, VaultHeader **hdr) {
-    return storage_read_vault_with_key(vault_path, NULL, entries, hdr); // key is autofilled with current user's key if NULL
+    // key is autofilled with current user's key if NULL
+    return storage_read_vault_with_key(vault_path, NULL, entries, hdr);
 }
 
 bool storage_read_user_vault() {
@@ -816,13 +879,13 @@ bool storage_read_user_vault() {
     char *vault_path = storage_get_user_vault_path(username);
     if (!util_check_ptr(vault_path, "Failed to build user vault path"))
         return false;
-    
+
     VaultHeader *hdr = ec_malloc(HEADER_LEN);
-    num_entries = storage_read_vault(vault_path, &entries, &hdr);
-    
-    time_t t = (time_t)hdr->timestamp;
+    num_entries      = storage_read_vault(vault_path, &entries, &hdr);
+
+    time_t     t             = (time_t)hdr->timestamp;
     struct tm *last_modified = localtime(&t);
-    char time_buf[23];
+    char       time_buf[23];
     strftime(time_buf, sizeof(time_buf), "%m-%d-%Y at %H:%M:%S", last_modified);
 
     util_log(DEBUG, "Loaded %d entries from user vault; last modified %s", num_entries, time_buf);
@@ -831,7 +894,7 @@ bool storage_read_user_vault() {
 }
 
 bool storage_write_vault(char *vault_path, PasswdEntry *entries, int num_entries, uint8_t *salt) {
-    
+
     VaultHeader *hdr = ec_malloc(HEADER_LEN);
     memcpy(hdr->magic, VAULT_MAGIC, 6);
     hdr->version = VAULT_SCHEMA_VERSION;
@@ -839,8 +902,8 @@ bool storage_write_vault(char *vault_path, PasswdEntry *entries, int num_entries
     hdr->num_entries = num_entries;
 
     uint8_t *ciphertext = NULL;
-    uint8_t *nonce = NULL;
-    uint8_t *tag = NULL;
+    uint8_t *nonce      = NULL;
+    uint8_t *tag        = NULL;
 
     uint32_t clen = 0;
     if (!encrypt_entries(entries, num_entries, salt, &ciphertext, (int32_t *)&clen, &nonce, &tag)) {
@@ -851,17 +914,17 @@ bool storage_write_vault(char *vault_path, PasswdEntry *entries, int num_entries
     hdr->ciphertext_len = clen;
 
     memcpy(hdr->nonce, nonce, 12);
-    memcpy(hdr->tag,   tag,   16);
+    memcpy(hdr->tag, tag, 16);
     free(nonce);
     free(tag);
-    
+
     uint8_t *write_buf = ec_malloc(HEADER_LEN + hdr->ciphertext_len);
 
     hdr->timestamp = time(NULL);
     memcpy(write_buf, hdr, HEADER_LEN);
     memcpy(write_buf + HEADER_LEN, ciphertext, hdr->ciphertext_len);
     free(ciphertext);
-    
+
     uint8_t *hash = sha_256_hash(write_buf + 10 + HASH_LEN, HEADER_LEN + hdr->ciphertext_len - 10 - HASH_LEN);
     if (!util_check_ptr(hash, "Failed to hash vault data for writing")) {
         free(write_buf);
@@ -874,7 +937,7 @@ bool storage_write_vault(char *vault_path, PasswdEntry *entries, int num_entries
 
     FILE *fp = fopen(vault_path, "wb");
     if (!fp) {
-        util_log(ERROR, "Failed to open vault for writing");
+        util_log(ERROR, "Failed to open/create vault for writing");
         free(write_buf);
         free(hdr);
         return false;
@@ -890,7 +953,7 @@ bool storage_write_vault(char *vault_path, PasswdEntry *entries, int num_entries
 bool storage_write_user_vault() {
 
     char *vault_path = storage_get_user_vault_path(username);
-    if (!util_check_ptr(vault_path, "Failed to get user vault path")) 
+    if (!util_check_ptr(vault_path, "Failed to get user vault path"))
         return false;
 
     uint8_t *salt = get_user_salt();
@@ -900,7 +963,7 @@ bool storage_write_user_vault() {
     }
 
     bool res = storage_write_vault(vault_path, entries, num_entries, salt);
-    
+
     free(vault_path);
     free(salt);
 
@@ -909,7 +972,8 @@ bool storage_write_user_vault() {
 
 int storage_get_next_id() {
     int current_id = 0;
-    for (int i = 0; i < num_entries; i++) current_id = MAX(current_id, i[entries].id); // fun c tricks with arrays :)
+    for (int i = 0; i < num_entries; i++)
+        current_id = MAX(current_id, i[entries].id); // fun c tricks with arrays :)
 
     // run id 'defrag' routine to consolidate ids if they have run excessively high
     if (current_id > num_entries * 3 || (num_entries > 10000 && current_id > num_entries + 200)) {
@@ -927,7 +991,7 @@ PasswdEntry *storage_get_entry(int id) {
     for (int i = 0; i < num_entries; i++)
         if (entries[i].id == id)
             return &entries[i];
-    
+
     util_log(ERROR, "Failed to fetch password entry from id: invalid id");
     return NULL;
 }
@@ -948,23 +1012,18 @@ bool add_entry(PasswdEntry *entry) {
 
     num_entries++;
 
-    PasswdEntry *new_entries = realloc(entries, sizeof(PasswdEntry) * num_entries);
+    if (entries)
+        entries = ec_realloc(entries, sizeof(PasswdEntry) * num_entries);
+    else
+        entries = ec_malloc(sizeof(PasswdEntry));
 
-    if (!new_entries) {
-        util_log(ERROR, "Failed to expand passwd entries array");
-        num_entries--;
-        return false;
-    }
-
-    entries = new_entries;
-
-    entries[num_entries - 1].id       =        entry->id;
+    entries[num_entries - 1].id       = entry->id;
     entries[num_entries - 1].service  = strdup(entry->service);
     entries[num_entries - 1].username = strdup(entry->username);
     entries[num_entries - 1].password = strdup(entry->password);
     entries[num_entries - 1].notes    = strdup(entry->notes);
 
-    qsort(entries, num_entries, sizeof(PasswdEntry), compare_entries_by_service); // sort entries
+    qsort(entries, num_entries, sizeof(PasswdEntry), compare_entries_by_service);
 
     if (!storage_write_user_vault()) {
         util_log(ERROR, "Failed to write expanded entry list; this session will not be saved properly");
@@ -1002,10 +1061,12 @@ bool delete_entry(int id) {
         entries[j] = entries[j + 1];
 
     num_entries--;
-    PasswdEntry *new_entries = ec_realloc(entries, sizeof(PasswdEntry) * num_entries);
-    if (!new_entries)
-        return false;
-    entries = new_entries;
+    if (num_entries)
+        entries = ec_realloc(entries, sizeof(PasswdEntry) * num_entries);
+    else {
+        free(entries);
+        entries = NULL;
+    }
 
     if (!storage_write_user_vault()) {
         util_log(ERROR, "Failed to write updated user vault");
@@ -1029,16 +1090,16 @@ bool update_entry(int id, PasswdEntry *new_entry) {
             return false;
         }
     }
-    
-    if (index < 0 ) {
+
+    if (index < 0) {
         util_log(ERROR, "Failed to update entry: id not found");
         return false;
     }
-    
-    entries[index].service = strdup(new_entry->service);
+
+    entries[index].service  = strdup(new_entry->service);
     entries[index].username = strdup(new_entry->username);
     entries[index].password = strdup(new_entry->password);
-    entries[index].notes = strdup(new_entry->notes);
+    entries[index].notes    = strdup(new_entry->notes);
 
     qsort(entries, num_entries, sizeof(PasswdEntry), compare_entries_by_service);
 

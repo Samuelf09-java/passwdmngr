@@ -4,11 +4,7 @@
 
 G_DEFINE_FINAL_TYPE(EntryEditBox, entry_edit_box, GTK_TYPE_BOX)
 
-enum {
-    SIGNAL_SAVE,
-    SIGNAL_CANCEL,
-    N_SIGNALS
-};
+enum { SIGNAL_SAVE, SIGNAL_CANCEL, N_SIGNALS };
 
 static guint entry_edit_box_signals[N_SIGNALS];
 
@@ -25,10 +21,7 @@ static void on_cancel_clicked(GtkButton *button, EntryEditBox *self) {
 static void entry_edit_box_class_init(EntryEditBoxClass *klass) {
     GtkWidgetClass *widget_class = GTK_WIDGET_CLASS(klass);
 
-    gtk_widget_class_set_template_from_resource(
-        widget_class,
-        "/com/samuelf09/passwdmngr/entry_edit_box.ui"
-    );
+    gtk_widget_class_set_template_from_resource(widget_class, "/com/samuelf09/passwdmngr/entry_edit_box.ui");
 
     REGISTER_CHILD(EntryEditBox, service_entry);
     REGISTER_CHILD(EntryEditBox, username_entry);
@@ -41,24 +34,10 @@ static void entry_edit_box_class_init(EntryEditBoxClass *klass) {
     REGISTER_CALLBACK(on_cancel_clicked);
 
     entry_edit_box_signals[SIGNAL_SAVE] =
-        g_signal_new("save",
-                     G_TYPE_FROM_CLASS(klass),
-                     G_SIGNAL_RUN_LAST,
-                     0,
-                     NULL, NULL,
-                     NULL,
-                     G_TYPE_NONE,
-                     0);
+        g_signal_new("save", G_TYPE_FROM_CLASS(klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
 
     entry_edit_box_signals[SIGNAL_CANCEL] =
-        g_signal_new("cancel",
-                     G_TYPE_FROM_CLASS(klass),
-                     G_SIGNAL_RUN_LAST,
-                     0,
-                     NULL, NULL,
-                     NULL,
-                     G_TYPE_NONE,
-                     0);
+        g_signal_new("cancel", G_TYPE_FROM_CLASS(klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
 }
 
 static void entry_edit_box_init(EntryEditBox *self) {

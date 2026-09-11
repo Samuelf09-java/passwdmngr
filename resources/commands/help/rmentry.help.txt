@@ -1,0 +1,18 @@
+Delete the specified entry
+
+Aliases:
+  deleteentry
+  delentry
+
+Arguments:
+  service (string): exact name of service to delete;
+    use the search command to find service names
+  id (number): entry id to view (can be found
+    through search command; note that ids may change
+    on import, or if there are a very large number
+    of entries)
+
+Note: either service OR id must be provided to delete an entry
+
+Flags:
+  --force: do not display '[Y/n]' confirmation prompt

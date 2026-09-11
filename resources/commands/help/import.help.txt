@@ -1,0 +1,15 @@
+Import entries from vault
+
+Aliases:
+  imp
+
+Arguments:
+  path (string): path to vault to import
+  id_list (string, optional): list of comma-separated ids
+    like "1,2,5,7"; assumes all entries should be imported if
+    no list is provided, or if list contains only "*" or "all"
+  mode (number, optional): 0 = REPLACE (creates backup of current vault and
+    replaces all data with new vault), 1 = OVERWRITE (overwrites entries
+    with duplicate service names with the imported version), 2 = PROMPT
+    (prompts to keep (old)/replace (old with new)/rename (new entry))
+    Defaults to 2 (PROMPT)

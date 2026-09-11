@@ -1,0 +1,11 @@
+View data contained in the specified entry
+
+Arguments:
+  service (string): exact name of service to view;
+    use the search command to find service names
+  id (number): entry id to view (can be found
+    through search command; note that ids may change
+    on import, or if there are a very large number
+    of entries)
+
+Either service OR id must be provided to view an entry

@@ -1,0 +1,20 @@
+Encrypt text or hex bytes
+
+Aliases:
+  enc
+  aes256gcm-encrypt
+
+Arguments:
+  text (string): text to encrypt
+  hex (string): bytes to encrypt (hex="bytes")
+  file (string): path to file containing utf-8 hex characters
+    to encrypt
+  binfile (string): path to file containing raw data to encrypt
+  'text', 'hex=', 'file=', or 'binfile=' must be provided
+
+  key (base64 string): key for encryption, see 'help mkkey'
+  nonce (base64 string): nonce (iv) for encryption; generate
+    with 'random 12 --base64' or use an existing one
+
+Flags:
+  --hex-out: output bytes instead of base64

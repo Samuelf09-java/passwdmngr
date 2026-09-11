@@ -1,0 +1,12 @@
+Change your username
+
+Will prompt for password to confirm changes
+
+Aliases:
+  chngusername
+  changeuname
+  chnguname
+  uname
+
+Arguments:
+  new_uname (string, optional): new username

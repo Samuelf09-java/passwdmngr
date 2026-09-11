@@ -10,29 +10,28 @@ extern const char PATH_SEPARATOR;
 #define X(x) (void)(x) // suppress 'unused parameter' compiler warnings with void cast
 #define UNIMPLEMENTED util_error("This function is currently unimplemented") // mark a function as unimplemented
 
-enum ErrorType {
-    WARN_D,
-    NONFATAL_D,
-    FATAL_D
-};
+#define is_digit(c)                                                                                                    \
+    (c == '0' || c == '1' || c == '2' || c == '3' || c == '4' || c == '5' || c == '6' || c == '7' || c == '8' ||       \
+     c == '9')
+#define is_hex(c)                                                                                                      \
+    (c == '0' || c == '1' || c == '2' || c == '3' || c == '4' || c == '5' || c == '6' || c == '7' || c == '8' ||       \
+     c == '9' || c == 'a' || c == 'b' || c == 'c' || c == 'd' || c == 'e' || c == 'f' || c == 'A' || c == 'B' ||       \
+     c == 'C' || c == 'D' || c == 'E' || c == 'F')
+#define is_alpha(c) ((c >= 0x41 && c <= 0x5a) || (c >= 0x61 && c <= 0x7a))
 
-enum LogLevel {
-    DEBUG,
-    INFO,
-    WARN,
-    ERROR,
-    FATAL
-};
+enum ErrorType { WARN_D, NONFATAL_D, FATAL_D };
+
+enum LogLevel { DEBUG, INFO, WARN, ERROR, FATAL };
 
 typedef enum ErrorType ErrorType;
-typedef enum LogLevel LogLevel;
+typedef enum LogLevel  LogLevel;
 
 char *util_get_app_dir();
 char *util_get_logfile();
 char *util_get_prefs_file();
 char *util_get_accounts_file();
-int dir_exists(const char *path);
-bool delete_recursive(const char *path, GError **error);
+int   dir_exists(const char *path);
+bool  delete_recursive(const char *path, GError **error);
 
 void util_assert(int cond, char *fail_msg);
 
@@ -44,7 +43,9 @@ void util_nonfatal_d(const char *msg);
 void util_warn_d(const char *msg);
 bool util_check_ptr(void *ptr, const char *msg);
 
-void wipe_mem(void *mem, size_t bytes);
+void  wipe_mem(void *mem, size_t bytes);
 void *ec_malloc(size_t size);
+void *ec_calloc(size_t nmeb, size_t size);
 void *ec_realloc(void *ptr, size_t size);
+int   count_substrings(const char *haystack, const char *needle);
 char *trim(char *s);

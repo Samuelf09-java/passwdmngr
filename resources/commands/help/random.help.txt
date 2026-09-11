@@ -1,0 +1,12 @@
+Generate random bytes
+
+Aliases:
+  rand
+  randombytes
+  randbytes
+
+Arguments:
+  bytes (number): number of bytes to generate
+
+Flags:
+  --base64: convert bytes directly to base64 for use in other commands

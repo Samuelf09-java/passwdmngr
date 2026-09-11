@@ -1,0 +1,16 @@
+Delete your account
+
+Deletes the currently logged-in user's account,
+logging them out, deleting their vault, and removing
+them from accounts.bin. Requires confirmation (Y/n
+prompt + password entry) for safety
+
+Aliases:
+  delaccount
+  deleteaccount
+  delacc
+  rmacc
+
+Flags:
+  --force: Delete account directly; do not prompt for
+    anything. USE AT YOUR OWN RISK

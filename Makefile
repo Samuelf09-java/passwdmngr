@@ -14,6 +14,16 @@ BLP := $(shell find resources/ui -name '*.blp')
 UI = $(patsubst resources/ui/%.blp, resources/generated/%.ui, $(BLP))
 UI += $(shell find resources/ui -name '*.ui')
 
+LINENOISE_DIR := external/linenoise-ng
+LINENOISE_BUILD := $(LINENOISE_DIR)/build
+ifeq ($(OS),Windows_NT)
+	LINENOISE_LIB := $(LINENOISE_BUILD)/linenoise-ng.lib
+else
+	LINENOISE_LIB := $(LINENOISE_BUILD)/liblinenoise.a
+endif
+LINENOISE_OUT := build/libs
+LINENOISE_OUT_LIB := $(LINENOISE_OUT)/$(notdir $(LINENOISE_LIB))
+
 TARGET ?= passwdmngr
 
 DEBUG ?= 0
@@ -39,14 +49,30 @@ else
 
 		HOMEBREW_PREFIX := $(shell brew --prefix)
 
-    	CFLAGS += -I$(HOMEBREW_PREFIX)/include
-    	LDLIBS += -L$(HOMEBREW_PREFIX)/lib
+		CFLAGS += -I$(HOMEBREW_PREFIX)/include
+		LDLIBS += -L$(HOMEBREW_PREFIX)/lib
 	else ifeq ($(UNAME_S),Linux)
 #		linux logic if necessary
 	endif
 endif
 
 all: $(TARGET)
+
+LDLIBS += $(LINENOISE_OUT_LIB) -lstdc++
+
+$(LINENOISE_OUT_LIB):
+	@if [ ! -f $(LINENOISE_OUT_LIB) ]; then \
+		echo "Building linenoise-ng..."; \
+		rm -rf $(LINENOISE_BUILD); \
+		mkdir -p $(LINENOISE_BUILD); \
+		cd $(LINENOISE_BUILD) && cmake .. && cmake --build .; \
+		cd ../../..; \
+		mkdir -p $(LINENOISE_OUT); \
+		cp $(LINENOISE_BUILD)/lib*.a $(LINENOISE_OUT_LIB); \
+		rm -rf $(LINENOISE_BUILD); \
+	fi
+
+linenoise: $(LINENOISE_OUT_LIB)
 
 # Compile c
 build/%.o: src/%.c
@@ -60,9 +86,12 @@ resources/generated/%.ui: resources/ui/%.blp
 	@echo "CC $<"
 	@$(BLUEPRINT) compile $< > $@
 
-# Compile gresources
-build/resources.c: resources/resources.xml $(UI)
+# Compile gresources & ensure commands.json is compacted (for embedding)
+RESOURCE_FILES := $(shell find resources -type f ! -path "resources/generated/*")
+
+build/resources.c: resources/resources.xml $(UI) $(RESOURCE_FILES)
 	@echo "CC $<"
+	@jq -c . resources/commands/commands.json > resources/generated/commands.json
 	@cd resources && glib-compile-resources resources.xml --target=../build/resources.c --generate-source
 
 build/resources.o: build/resources.c
@@ -70,7 +99,7 @@ build/resources.o: build/resources.c
 	@$(CC) $(CFLAGS) -c $< -o $@
 
 # Link
-$(TARGET): $(OBJ) build/resources.o
+$(TARGET): $(OBJ) build/resources.o linenoise
 	@echo "Linking object files into executable '$(TARGET)'"
 	@$(CC) $(OBJ) build/resources.o -o $(TARGET) $(LDLIBS)
 	@echo "Done"

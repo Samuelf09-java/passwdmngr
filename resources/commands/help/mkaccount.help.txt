@@ -1,0 +1,24 @@
+Create a new account
+
+Initializes new account with provided username
+and password, making empty user vault, adding
+account to accounts.bin, and (by default) logging
+in the new user
+
+Aliases:
+  newaccount
+  createaccount
+  newacc
+  mkacc
+
+Arguments:
+  new_uname (string, optional): username for new account
+    (if not provided, will prompt for username)
+  new_passwd (string, optional): password for new account
+    (also prompts if not provided; note that due to
+    how the parser works, if you provide only one
+    argument, it will be interpreted as the username)
+
+Flags:
+  --nologin: Creates new account without logging in
+    as the new user

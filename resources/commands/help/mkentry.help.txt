@@ -1,0 +1,20 @@
+Create new entry
+
+Aliases:
+  addentry
+  newentry
+
+Arguments:
+  service (string): data for entry's service field (service="name")
+  username (string, optional): data for entry's username field
+    (username="uname")
+  password (string, optional): data for entry's password field
+    (password="passwd")
+  notes (string, optional): data for entry's notes field
+    (notes="notes")
+
+Note that these arguments are all provided via key=val syntax,
+  and only the service is required
+
+Flags:
+  --no-prompt: do not prompt for fields not provided

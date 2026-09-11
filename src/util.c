@@ -1,19 +1,21 @@
-#include <string.h>
 #include "util.h"
 #include "main.h"
+#include <ctype.h>
+#include <string.h>
 
 #ifdef _WIN32
-    const char PATH_SEPARATOR = '\\';
+const char PATH_SEPARATOR = '\\';
 #else
-    const char PATH_SEPARATOR = '/';
+const char PATH_SEPARATOR = '/';
 #endif
 
 char *util_get_app_dir() {
     const char *home = getenv("HOME");
-    char *root;
+    char       *root;
 
 #if defined(__linux__)
-    if (!home) return NULL;
+    if (!home)
+        return NULL;
     root = ec_malloc(strlen(home) + strlen("/.local/share/passwdmngr/") + 1);
     if (!root) {
         util_log(ERROR, "Failed to allocate memory for root path");
@@ -23,7 +25,8 @@ char *util_get_app_dir() {
     return root;
 
 #elif defined(__APPLE__)
-    if (!home) return NULL;
+    if (!home)
+        return NULL;
     root = ec_malloc(strlen(home) + strlen("/Library/Application Support/passwdmngr/") + 1);
     if (!root) {
         util_log(ERROR, "Failed to allocate memory for root path");
@@ -34,7 +37,8 @@ char *util_get_app_dir() {
 
 #elif defined(_WIN32)
     const char *local = getenv("LOCALAPPDATA");
-    if (!local) return NULL;
+    if (!local)
+        return NULL;
     root = ec_malloc(strlen(local) + strlen("\\passwdmngr\\") + 1);
     if (!root) {
         util_log(ERROR, "Failed to allocate memory for root path");
@@ -44,14 +48,14 @@ char *util_get_app_dir() {
     return root;
 
 #else
-    #error "Unrecognized platform!"
+#error "Unrecognized platform!"
 
 #endif
 }
 
 char *util_get_logfile() {
     char *basedir = util_get_app_dir();
-    char *ret = ec_malloc(strlen(basedir) + strlen("passwdmngr.log") + 1);
+    char *ret     = ec_malloc(strlen(basedir) + strlen("passwdmngr.log") + 1);
     sprintf(ret, "%spasswdmngr.log", basedir);
     free(basedir);
     return ret;
@@ -59,7 +63,7 @@ char *util_get_logfile() {
 
 char *util_get_prefs_file() {
     char *basedir = util_get_app_dir();
-    char *ret = ec_malloc(strlen(basedir) + strlen("preferences.json") + 1);
+    char *ret     = ec_malloc(strlen(basedir) + strlen("preferences.json") + 1);
     sprintf(ret, "%spreferences.json", basedir);
     free(basedir);
     return ret;
@@ -67,7 +71,7 @@ char *util_get_prefs_file() {
 
 char *util_get_accounts_file() {
     char *basedir = util_get_app_dir();
-    char *ret = ec_malloc(strlen(basedir) + strlen("accounts.bin") + 1);
+    char *ret     = ec_malloc(strlen(basedir) + strlen("accounts.bin") + 1);
     sprintf(ret, "%saccounts.bin", basedir);
     free(basedir);
     return ret;
@@ -87,7 +91,8 @@ bool delete_recursive(const char *path, GError **error) {
     }
 
     // Enumerate children
-    GFileEnumerator *enumerator = g_file_enumerate_children(dir, G_FILE_ATTRIBUTE_STANDARD_NAME "," G_FILE_ATTRIBUTE_STANDARD_TYPE, G_FILE_QUERY_INFO_NONE, NULL, error);
+    GFileEnumerator *enumerator = g_file_enumerate_children(
+        dir, G_FILE_ATTRIBUTE_STANDARD_NAME "," G_FILE_ATTRIBUTE_STANDARD_TYPE, G_FILE_QUERY_INFO_NONE, NULL, error);
 
     if (!enumerator) {
         g_object_unref(dir);
@@ -97,7 +102,7 @@ bool delete_recursive(const char *path, GError **error) {
     GFileInfo *info;
     while ((info = g_file_enumerator_next_file(enumerator, NULL, error))) {
         const char *name = g_file_info_get_name(info);
-        GFileType type = g_file_info_get_file_type(info);
+        GFileType   type = g_file_info_get_file_type(info);
 
         GFile *child = g_file_get_child(dir, name);
 
@@ -142,8 +147,9 @@ void util_assert(int cond, char *fail_msg) {
 
 void util_log(LogLevel level, const char *fmt, ...) {
 
-#ifndef DEBUGMSG
-    if (level == DEBUG) return;
+#ifndef DEBUGMSG // set by Makefile to enable debugging
+    if (level == DEBUG)
+        return;
 #endif
 
     va_list args;
@@ -153,24 +159,29 @@ void util_log(LogLevel level, const char *fmt, ...) {
 
     char *prefix = NULL;
 
-    if (level == DEBUG)      prefix = "[passwdmngr/DEBUG]: ";
-    else if (level == INFO)  prefix = "[passwdmngr/INFO]: ";
-    else if (level == WARN)  prefix = "[passwdmngr/WARNING]: ";
-    else if (level == ERROR) prefix = "[passwdmngr/ERROR]: ";
-    else                     prefix = "[passwdmngr/FATAL ERROR]: ";
+    if (level == DEBUG)
+        prefix = "[passwdmngr/DEBUG]: ";
+    else if (level == INFO)
+        prefix = "[passwdmngr/INFO]: ";
+    else if (level == WARN)
+        prefix = "[passwdmngr/WARNING]: ";
+    else if (level == ERROR)
+        prefix = "[passwdmngr/ERROR]: ";
+    else
+        prefix = "[passwdmngr/FATAL ERROR]: ";
 
-    time_t now = time(NULL);
+    time_t     now      = time(NULL);
     struct tm *log_time = localtime(&now);
-    char time_buf[20];
+    char       time_buf[20];
 
     strftime(time_buf, sizeof(time_buf), "%m-%d-%Y %H:%M:%S", log_time);
 
     char *log_msg    = ec_malloc(strlen(msg) + strlen(prefix) + sizeof(time_buf) + 4);
     char *stdout_msg = ec_malloc(strlen(msg) + strlen(prefix) + 1);
     sprintf(log_msg, "(%s) %s%s", time_buf, prefix, msg);
-    sprintf(stdout_msg,   "%s%s",           prefix, msg);
+    sprintf(stdout_msg, "%s%s", prefix, msg);
     g_free(msg);
-    
+
     if (level > WARN)
         g_printerr("%s\n", stdout_msg);
     else
@@ -193,12 +204,15 @@ void util_error_dialog(GtkWindow *parent, const char *msg, ErrorType error_type,
 
     char *prefix = NULL;
 
-    if (error_type == WARN_D)          prefix = "[passwdmngr/WARNING]: ";
-    else if (error_type == NONFATAL_D) prefix = "[passwdmngr/ERROR]: ";
-    else                               prefix = "[passwdmngr/FATAL ERROR]: ";
+    if (error_type == WARN_D)
+        prefix = "[passwdmngr/WARNING]: ";
+    else if (error_type == NONFATAL_D)
+        prefix = "[passwdmngr/ERROR]: ";
+    else
+        prefix = "[passwdmngr/FATAL ERROR]: ";
 
-    size_t msg_len = strlen(msg) + strlen(prefix) + 1;
-    char *error_msg = ec_malloc(msg_len);
+    size_t msg_len   = strlen(msg) + strlen(prefix) + 1;
+    char  *error_msg = ec_malloc(msg_len);
     sprintf(error_msg, "%s%s", prefix, msg);
 
     LogLevel level;
@@ -211,7 +225,7 @@ void util_error_dialog(GtkWindow *parent, const char *msg, ErrorType error_type,
     case NONFATAL_D:
         level = ERROR;
         break;
-    
+
     default: // fatal
         level = FATAL;
         break;
@@ -220,17 +234,19 @@ void util_error_dialog(GtkWindow *parent, const char *msg, ErrorType error_type,
     util_log(level, msg);
 
     if (!parent) {
-        if (error_type == FATAL_D) g_application_quit(G_APPLICATION(app));
+        if (error_type == FATAL_D)
+            g_application_quit(G_APPLICATION(app));
         return;
     }
 
     GtkAlertDialog *dialog = gtk_alert_dialog_new("%s", error_msg);
 
-    const char *buttons[] = { "Close", NULL };
+    const char *buttons[] = {"Close", NULL};
     gtk_alert_dialog_set_buttons(dialog, buttons);
     gtk_alert_dialog_show(dialog, parent);
 
-    if (error_type == FATAL_D) g_application_quit(G_APPLICATION(app));
+    if (error_type == FATAL_D)
+        g_application_quit(G_APPLICATION(app));
 }
 
 void util_fatal_d(const char *msg) {
@@ -269,6 +285,12 @@ void *ec_malloc(size_t size) {
     return ptr;
 }
 
+void *ec_calloc(size_t nmeb, size_t size) {
+    void *ptr = calloc(nmeb, size);
+    util_assert(ptr != NULL, "calloc returned NULL pointer");
+    return ptr;
+}
+
 void *ec_realloc(void *ptr, size_t size) {
     void *new_ptr = realloc(ptr, size);
     util_assert(new_ptr != NULL, "realloc returned NULL pointer");
@@ -277,6 +299,31 @@ void *ec_realloc(void *ptr, size_t size) {
 
 static inline int is_horizontal_space(unsigned char c) {
     return (c == ' ' || c == '\t');
+}
+
+int count_substrings(const char *haystack, const char *needle) {
+    if (!haystack || !needle || !*needle)
+        return 0;
+
+    int    count = 0;
+    size_t nlen  = strlen(needle);
+
+    for (const char *h = haystack; *h; h++) {
+        const char *h2 = h;
+        const char *n2 = needle;
+
+        while (*h2 && *n2 && tolower((unsigned char)*h2) == tolower((unsigned char)*n2)) {
+            h2++;
+            n2++;
+        }
+
+        if (!*n2) {
+            count++;
+            h += nlen - 1;
+        }
+    }
+
+    return count;
 }
 
 char *trim(char *s) {

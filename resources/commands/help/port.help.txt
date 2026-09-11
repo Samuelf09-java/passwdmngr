@@ -1,0 +1,13 @@
+Port old vault formats to the newest version
+
+If necessary, new versions of this app that
+change the vault or accounts schema version
+will include code to port to newest version,
+accessed via this command
+
+Arguments:
+  vault_paths (string, required): paths to port
+    (accepted 'special' paths: 'all' (all data in
+    app dir), 'vaults' (all user vaults),
+    'accounts' (accounts.bin), provide username,
+    or input specific paths (to port exports))

@@ -1,16 +1,16 @@
-#include <sys/stat.h>
-#include <sodium.h>
+#include "main.h"
+#include "cli.h"
+#include "storage.h"
 #include "ui/login_window.h"
 #include "ui/main_window.h"
-#include "crypto.h"
-#include "storage.h"
 #include "util.h"
-#include "main.h"
+#include <sodium.h>
+#include <sys/stat.h>
 
 AppMode mode;
 
-GtkApplication *passwdmngr = NULL;
-GtkWindow *root_window = NULL;
+GtkApplication *passwdmngr  = NULL;
+GtkWindow      *root_window = NULL;
 
 static bool app_init() {
 
@@ -40,11 +40,11 @@ static bool app_init() {
         g_mkdir_with_parents(user_vaults_dir, 0755);
 
     char *accounts_path = util_get_accounts_file();
-    char *pref_path = util_get_prefs_file();
+    char *pref_path     = util_get_prefs_file();
 
-    gchar *contents = NULL;
-    gsize length = 0;
-    bool file_exists = g_file_get_contents(accounts_path, &contents, &length, NULL);
+    gchar *contents    = NULL;
+    gsize  length      = 0;
+    bool   file_exists = g_file_get_contents(accounts_path, &contents, &length, NULL);
     g_free(contents);
     contents = NULL;
 
@@ -59,8 +59,8 @@ static bool app_init() {
             return false;
         }
 
-    contents = NULL;
-    length = 0;
+    contents    = NULL;
+    length      = 0;
     file_exists = g_file_get_contents(pref_path, &contents, &length, NULL);
     g_free(contents);
     contents = NULL;
@@ -95,14 +95,11 @@ static void on_activate(GtkApplication *app) {
     GtkCssProvider *provider = gtk_css_provider_new();
     gtk_css_provider_load_from_resource(provider, "/com/samuelf09/passwdmngr/style.css");
 
-    gtk_style_context_add_provider_for_display(
-        gdk_display_get_default(),
-        GTK_STYLE_PROVIDER(provider),
-        GTK_STYLE_PROVIDER_PRIORITY_APPLICATION
-    );
+    gtk_style_context_add_provider_for_display(gdk_display_get_default(), GTK_STYLE_PROVIDER(provider),
+                                               GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
 
     GtkApplicationWindow *win = GTK_APPLICATION_WINDOW(gtk_application_window_new(app));
-    root_window = GTK_WINDOW(win);
+    root_window               = GTK_WINDOW(win);
     gtk_window_set_default_size(root_window, 1200, 800);
 
     LoginWindow *login_win = g_object_new(LOGIN_WINDOW_TYPE, NULL);
@@ -112,7 +109,7 @@ static void on_activate(GtkApplication *app) {
         util_log(FATAL, "app_init failed");
         g_application_quit(G_APPLICATION(passwdmngr));
     }
-    
+
     gtk_window_present(GTK_WINDOW(win));
 }
 
@@ -121,9 +118,10 @@ static void on_shutdown(GApplication *app, gpointer user_data) {
     X(app);
     X(user_data);
 
-    if (entries) wipe_passwd_entries(entries, num_entries);
-    entries = NULL;
-    num_entries = -1;
+    if (entries)
+        wipe_passwd_entries(entries, num_entries);
+    entries     = NULL;
+    num_entries = 0;
     if (tmp_passwd) {
         wipe_mem(tmp_passwd, strlen(tmp_passwd));
         free(tmp_passwd);
@@ -150,17 +148,24 @@ static int run_cli(int argc, char **argv) {
     mode = CLI;
 
     if (!app_init()) {
-        util_log(FATAL, "app_init failed");
-        exit(1);
+        util_log(FATAL, "app init failed");
+        exit(-1);
     }
 
-    printf("passwdmngr running in cli mode!\n");
+    util_log(INFO, "passwdmngr started in cli mode");
+
+    if (!cli_init()) {
+        util_log(FATAL, "cli init failed");
+        exit(-2);
+    }
+
+    int exit_code = cli_run_shell();
 
     on_shutdown(NULL, NULL);
-    exit(0);
+    return exit_code;
 }
 
-int main(int argc, char **argv) {    
+int main(int argc, char **argv) {
 
     if (argc > 1) {
         if (!strcmp(argv[1], "--cli")) {
@@ -174,6 +179,7 @@ int main(int argc, char **argv) {
     }
 
     mode = GUI;
+
     GtkApplication *app = gtk_application_new("com.samuelf09.passwdmngr", G_APPLICATION_DEFAULT_FLAGS);
     g_signal_connect(app, "activate", G_CALLBACK(on_activate), NULL);
     g_signal_connect(app, "shutdown", G_CALLBACK(on_shutdown), NULL);

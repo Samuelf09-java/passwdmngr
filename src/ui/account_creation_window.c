@@ -1,16 +1,16 @@
 #include "ui/account_creation_window.h"
-#include "util.h"
 #include "main.h"
-#include "ui/main_window.h"
-#include "ui/login_window.h"
 #include "storage.h"
+#include "ui/login_window.h"
+#include "ui/main_window.h"
+#include "util.h"
 
 G_DEFINE_FINAL_TYPE(AccountCreationWindow, account_creation_window, GTK_TYPE_BOX)
 
 static void on_create_account_clicked(GtkButton *button, AccountCreationWindow *self) {
     X(button);
-    char *uname = strdup(gtk_editable_get_text(GTK_EDITABLE(self->uname_entry)));
-    char *passwd = strdup(gtk_editable_get_text(GTK_EDITABLE(self->passwd_entry)));
+    char *uname          = strdup(gtk_editable_get_text(GTK_EDITABLE(self->uname_entry)));
+    char *passwd         = strdup(gtk_editable_get_text(GTK_EDITABLE(self->passwd_entry)));
     char *confirm_passwd = strdup(gtk_editable_get_text(GTK_EDITABLE(self->confirm_passwd_entry)));
 
     if (strlen(uname) == 0 || strlen(passwd) == 0 || strlen(confirm_passwd) == 0) {
@@ -59,10 +59,7 @@ static void on_cancel_clicked(GtkButton *button, AccountCreationWindow *self) {
 static void account_creation_window_class_init(AccountCreationWindowClass *klass) {
     GtkWidgetClass *widget_class = GTK_WIDGET_CLASS(klass);
 
-    gtk_widget_class_set_template_from_resource(
-        widget_class,
-        "/com/samuelf09/passwdmngr/account_creation_window.ui"
-    );
+    gtk_widget_class_set_template_from_resource(widget_class, "/com/samuelf09/passwdmngr/account_creation_window.ui");
 
     REGISTER_CHILD(AccountCreationWindow, uname_entry);
     REGISTER_CHILD(AccountCreationWindow, passwd_entry);

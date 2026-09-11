@@ -1,0 +1,13 @@
+Prints raw json stored in vault
+
+Aliases:
+  dump
+
+Arguments:
+  vault (string, optional): vault path; defaults to
+    current user's vault (will prompt for password if
+    you are logged out, or if you are logged in and the
+    vault was encrypted with a different password
+
+Flags:
+  --pretty-print: Display json in pretty-printed format

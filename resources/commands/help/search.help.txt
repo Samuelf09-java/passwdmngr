@@ -1,0 +1,11 @@
+Find entries by partial name
+
+Returns number of matches and relevant 'service: id' pairs
+
+Arguments:
+  search_text (string): text to search for (by default,
+    searches for matching text in 'service' field only)
+
+Flags:
+  --deep: Search through notes, username, and password as
+    well as service

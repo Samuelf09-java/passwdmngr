@@ -1,0 +1,9 @@
+Login in to an account
+
+For security reasons, you must be logged in
+to access certain commands such as viewentry,
+dumpentries, rmaccount, etc.
+
+Arguments:
+  uname (string, optional): user to log in as
+    (will prompt to enter username if not provided)

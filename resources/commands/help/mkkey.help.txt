@@ -1,0 +1,12 @@
+Generate a base64-encoded 256-bit key for use in cryptographic commands
+
+Aliases:
+  derivekey
+  genkey
+
+Arguments:
+  passwd (string, optional): password for the key (will prompt
+    if not provided)
+  salt (string, optional): base64-encoded salt for key; use
+    'random 16 --base64' to generate a random salt, or provide
+    your own base64 salt if you are trying to derive an existing key

@@ -1,0 +1,14 @@
+Hash the input text or bytes with sha256
+
+Aliases:
+  sha256-hash
+
+Arguments:
+  text (string): text to hash
+  hex (string): bytes to hash (hex="bytes"); either
+    'text' or 'hex=' is required
+
+Flags:
+  --hex-out: output bytes instead of base64
+  --hex-out-compact: hex-out without spaces (useful
+    for finding vault names from usernames)

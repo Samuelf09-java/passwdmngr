@@ -1,0 +1,479 @@
+{
+    "commands": [
+        {
+            "name": "login",
+            "aliases": [],
+            "args": [
+                {
+                    "name": "uname",
+                    "type": "STRING",
+                    "excl_group": 0
+                }
+            ],
+            "flags": []
+        },
+        {
+            "name": "logout",
+            "aliases": [],
+            "args": [],
+            "flags": []
+        },
+        {
+            "name": "port",
+            "aliases": [],
+            "args": [
+                {
+                    "name": "vault_paths",
+                    "type": "STRING",
+                    "excl_group": 1
+                }
+            ],
+            "flags": []
+        },
+        {
+            "name": "mkaccount",
+            "aliases": [
+                "newaccount",
+                "createaccount",
+                "newacc",
+                "mkacc"
+            ],
+            "args": [
+                {
+                    "name": "new_uname",
+                    "type": "STRING",
+                    "excl_group": 0
+                },
+                {
+                    "name": "new_passwd",
+                    "type": "STRING",
+                    "excl_group": 0
+                }
+            ],
+            "flags": [
+                "nologin"
+            ]
+        },
+        {
+            "name": "rmaccount",
+            "aliases": [
+                "delaccount",
+                "deleteaccount",
+                "delacc",
+                "rmacc"
+            ],
+            "args": [],
+            "flags": [
+                "force"
+            ]
+        },
+        {
+            "name": "changepassword",
+            "aliases": [
+                "chngpassword",
+                "changepasswd",
+                "chngpasswd",
+                "passwd"
+            ],
+            "args": [],
+            "flags": []
+        },
+        {
+            "name": "changeusername",
+            "aliases": [
+                "chngusername",
+                "changeuname",
+                "chnguname",
+                "uname"
+            ],
+            "args": [
+                {
+                    "name": "new_uname",
+                    "type": "STRING",
+                    "excl_group": 0
+                }
+            ],
+            "flags": []
+        },
+        {
+            "name": "search",
+            "aliases": [],
+            "args": [
+                {
+                    "name": "search_text",
+                    "type": "STRING",
+                    "excl_group": 1
+                }
+            ],
+            "flags": [
+                "deep"
+            ]
+        },
+        {
+            "name": "viewentry",
+            "aliases": [],
+            "args": [
+                {
+                    "name": "service",
+                    "type": "STRING",
+                    "excl_group": 1
+                },
+                {
+                    "name": "id",
+                    "type": "NUMBER",
+                    "excl_group": 1
+                }
+            ],
+            "flags": []
+        },
+        {
+            "name": "dumpentries",
+            "aliases": [
+                "dump"
+            ],
+            "args": [
+                {
+                    "name": "vault",
+                    "type": "STRING",
+                    "excl_group": 0
+                }
+            ],
+            "flags": [
+                "pretty-print"
+            ]
+        },
+        {
+            "name": "mkentry",
+            "aliases": [
+                "addentry",
+                "newentry"
+            ],
+            "args": [
+                {
+                    "name": "service",
+                    "type": "KEYVAL",
+                    "excl_group": 1
+                },
+                {
+                    "name": "username",
+                    "type": "KEYVAL",
+                    "excl_group": 0
+                },
+                {
+                    "name": "password",
+                    "type": "KEYVAL",
+                    "excl_group": 0
+                },
+                {
+                    "name": "notes",
+                    "type": "KEYVAL",
+                    "excl_group": 0
+                }
+            ],
+            "flags": [
+                "no-prompt"
+            ]
+        },
+        {
+            "name": "rmentry",
+            "aliases": [
+                "deleteentry",
+                "delentry"
+            ],
+            "args": [
+                {
+                    "name": "service",
+                    "type": "STRING",
+                    "excl_group": 1
+                },
+                {
+                    "name": "id",
+                    "type": "NUMBER",
+                    "excl_group": 1
+                }
+            ],
+            "flags": [
+                "force"
+            ]
+        },
+        {
+            "name": "import",
+            "aliases": [
+                "imp"
+            ],
+            "args": [
+                {
+                    "name": "path",
+                    "type": "STRING",
+                    "excl_group": 1
+                },
+                {
+                    "name": "id_list",
+                    "type": "STRING",
+                    "excl_group": 0
+                },
+                {
+                    "name": "mode",
+                    "type": "NUMBER",
+                    "excl_group": 0
+                }
+            ],
+            "flags": []
+        },
+        {
+            "name": "export",
+            "aliases": [
+                "exp"
+            ],
+            "args": [
+                {
+                    "name": "path",
+                    "type": "STRING",
+                    "excl_group": 0
+                },
+                {
+                    "name": "id_list",
+                    "type": "STRING",
+                    "excl_group": 0
+                }
+            ],
+            "flags": []
+        },
+        {
+            "name": "inspect",
+            "aliases": [
+                "examine",
+                "insp",
+                "x"
+            ],
+            "args": [
+                {
+                    "name": "path",
+                    "type": "STRING",
+                    "excl_group": 1
+                }
+            ],
+            "flags": [
+                "hexdump"
+            ]
+        },
+        {
+            "name": "random",
+            "aliases": [
+                "rand",
+                "randombytes",
+                "randbytes"
+            ],
+            "args": [
+                {
+                    "name": "bytes",
+                    "type": "NUMBER",
+                    "excl_group": 1
+                }
+            ],
+            "flags": [
+                "base64"
+            ]
+        },
+        {
+            "name": "mkkey",
+            "aliases": [
+                "derivekey",
+                "genkey"
+            ],
+            "args": [
+                {
+                    "name": "passwd",
+                    "type": "STRING",
+                    "excl_group": 0
+                },
+                {
+                    "name": "salt",
+                    "type": "STRING",
+                    "excl_group": 0
+                }
+            ],
+            "flags": [
+                "hex-out"
+            ]
+        },
+        {
+            "name": "hash",
+            "aliases": [
+                "sha256-hash"
+            ],
+            "args": [
+                {
+                    "name": "text",
+                    "type": "STRING",
+                    "excl_group": 1
+                },
+                {
+                    "name": "hex",
+                    "type": "KEYVAL",
+                    "excl_group": 1
+                }
+            ],
+            "flags": [
+                "hex-out",
+                "hex-out-compact"
+            ]
+        },
+        {
+            "name": "pwhash",
+            "aliases": [
+                "argon2id13-hash"
+            ],
+            "args": [
+                {
+                    "name": "passwd",
+                    "type": "STRING",
+                    "excl_group": 0
+                },
+                {
+                    "name": "salt",
+                    "type": "STRING",
+                    "excl_group": 0
+                }
+            ],
+            "flags": [
+                "hex-out"
+            ]
+        },
+        {
+            "name": "base64encode",
+            "aliases": [
+                "base64enc",
+                "b64encode",
+                "b64enc",
+                "tob64"
+            ],
+            "args": [
+                {
+                    "name": "hex",
+                    "type": "STRING",
+                    "excl_group": 1
+                }
+            ],
+            "flags": []
+        },
+        {
+            "name": "base64decode",
+            "aliases": [
+                "base64dec",
+                "b64decode",
+                "b64dec",
+                "fromb64"
+            ],
+            "args": [
+                {
+                    "name": "base64",
+                    "type": "STRING",
+                    "excl_group": 1
+                }
+            ],
+            "flags": []
+        },
+        {
+            "name": "encrypt",
+            "aliases": [
+                "enc",
+                "aes256gcm-encrypt"
+            ],
+            "args": [
+                {
+                    "name": "text",
+                    "type": "STRING",
+                    "excl_group": 1
+                },
+                {
+                    "name": "hex",
+                    "type": "KEYVAL",
+                    "excl_group": 1
+                },
+                {
+                    "name": "file",
+                    "type": "KEYVAL",
+                    "excl_group": 1
+                },
+                {
+                    "name": "binfile",
+                    "type": "KEYVAL",
+                    "excl_group": 1
+                },
+                {
+                    "name": "key",
+                    "type": "KEYVAL",
+                    "excl_group": 2
+                },
+                {
+                    "name": "nonce",
+                    "type": "KEYVAL",
+                    "excl_group": 3
+                }
+            ],
+            "flags": [
+                "hex-out"
+            ]
+        },
+        {
+            "name": "decrypt",
+            "aliases": [
+                "dec",
+                "aes256gcm-decrypt"
+            ],
+            "args": [
+                {
+                    "name": "base64",
+                    "type": "STRING",
+                    "excl_group": 1
+                },
+                {
+                    "name": "hex",
+                    "type": "KEYVAL",
+                    "excl_group": 1
+                },
+                {
+                    "name": "file",
+                    "type": "KEYVAL",
+                    "excl_group": 1
+                },
+                {
+                    "name": "binfile",
+                    "type": "KEYVAL",
+                    "excl_group": 1
+                },
+                {
+                    "name": "key",
+                    "type": "KEYVAL",
+                    "excl_group": 2
+                },
+                {
+                    "name": "nonce",
+                    "type": "KEYVAL",
+                    "excl_group": 3
+                },
+                {
+                    "name": "tag",
+                    "type": "KEYVAL",
+                    "excl_group": 4
+                }
+            ],
+            "flags": [
+                "hex-out"
+            ]
+        },
+        {
+            "name": "help",
+            "aliases": [],
+            "args": [
+                {
+                    "name": "cmd",
+                    "type": "STRING",
+                    "excl_group": 0
+                }
+            ],
+            "flags": []
+        }
+    ]
+}

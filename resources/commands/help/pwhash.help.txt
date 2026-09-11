@@ -1,0 +1,14 @@
+Hash the input text with argon2id13
+
+Aliases:
+  argon2id13-hash
+
+Arguments:
+  passwd (string, optional): password to hash; will prompt if
+    not provided
+  salt (string, optional): base64-encoded salt for hash; use
+    'random 16 --base64' to generate a random salt, or provide
+    your own base64 salt if you are trying to match an existing hash
+
+Flags:
+  --hex-out: output bytes instead of base64

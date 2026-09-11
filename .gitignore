@@ -1,6 +1,7 @@
 # Build output
 build/
 passwdmngr
+external/linenoise-ng/build/
 
 # Compiled resources
 *.gresource

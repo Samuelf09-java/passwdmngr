@@ -1,0 +1,4 @@
+Log out of the currently logged in account
+
+Wipes any sensitive data stored in global variables
+and resets to original state

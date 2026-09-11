@@ -1,0 +1,18 @@
+Decrypt base64 string or hex bytes
+
+Aliases:
+  dec
+  aes256gcm-decrypt
+
+Arguments:
+  base64 (string): base64 to decrypt
+  hex (string): bytes to decrypt (hex="bytes")
+  file (string): path to file containing utf-8 hex characters
+    or base64 to decrypt
+  binfile (string): path to file containing raw data to decrypt
+  'text', 'hex=', 'file=', or 'binfile=' must be provided
+
+  key (base64 string): key for decryption, see 'help mkkey'
+  nonce (base64 string): nonce (iv) for decryption; generate
+    with 'random 12 --base64'
+  tag (base64 string): tag for decryption; comes from encryption

@@ -1,0 +1,10 @@
+Convert hex bytes to base64
+
+Aliases:
+  base64enc
+  b64encode
+  b64enc
+  tob64
+
+Arguments:
+  hex (string): bytes to convert

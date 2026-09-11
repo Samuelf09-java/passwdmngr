@@ -200,3 +200,12 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+
+Third-Party Licenses
+--------------------
+This software includes third-party components:
+
+- linenoise-ng (BSD-style license)
+  Copyright (c) Salvatore Sanfilippo
+  Copyright (c) ArangoDB GmbH
+  See third_party-licenses/linenoise-ng-LICENSE.txt
