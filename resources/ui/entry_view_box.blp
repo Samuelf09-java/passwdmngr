@@ -1,7 +1,6 @@
 using Gtk 4.0;
 
-template $EntryViewBox : Box {
-
+template $EntryViewBox: Box {
     orientation: vertical;
 
     Box content_box {
@@ -14,10 +13,76 @@ template $EntryViewBox : Box {
         margin-start: 15;
         margin-end: 15;
 
-        Label service_label { wrap: true; css-classes: ["service"]; }
-        Label username_label { wrap: true; }
-        Label password_label { wrap: true; }
-        Label notes_title { label: _("Notes:"); }
+        Box service_box {
+            orientation: horizontal;
+            spacing: 12;
+            halign: center;
+
+            Label service_label {
+                wrap: true;
+
+                css-classes: [
+                    "service",
+                ];
+            }
+
+            Button service_copy_button {
+                icon-name: "edit-copy-symbolic";
+                visible: false;
+                tooltip-text: "Copy to clipboard";
+                has-frame: false;
+
+                css-classes: [
+                    "copy-button",
+                ];
+            }
+        }
+
+        Box username_box {
+            orientation: horizontal;
+            spacing: 12;
+            halign: center;
+
+            Label username_label {
+                wrap: true;
+            }
+
+            Button username_copy_button {
+                icon-name: "edit-copy-symbolic";
+                visible: false;
+                tooltip-text: "Copy to clipboard";
+                has-frame: false;
+
+                css-classes: [
+                    "copy-button",
+                ];
+            }
+        }
+
+        Box password_box {
+            orientation: horizontal;
+            spacing: 12;
+            halign: center;
+
+            Label password_label {
+                wrap: true;
+            }
+
+            Button password_copy_button {
+                icon-name: "edit-copy-symbolic";
+                visible: false;
+                tooltip-text: "Copy to clipboard";
+                has-frame: false;
+
+                css-classes: [
+                    "copy-button",
+                ];
+            }
+        }
+
+        Label notes_title {
+            label: _("Notes:");
+        }
 
         Box notes_container {
             orientation: vertical;
@@ -28,6 +93,18 @@ template $EntryViewBox : Box {
                 wrap-mode: word_char;
                 xalign: 0;
                 halign: center;
+            }
+
+            Button notes_copy_button {
+                icon-name: "edit-copy-symbolic";
+                visible: false;
+                tooltip-text: "Copy to clipboard";
+                has-frame: false;
+                halign: end;
+
+                css-classes: [
+                    "copy-button",
+                ];
             }
         }
     }
@@ -40,14 +117,26 @@ template $EntryViewBox : Box {
         margin-bottom: 16;
 
         Button edit_button {
-            css-classes: ["circular"];
-            Image { icon-name: "document-edit-symbolic"; }
+            css-classes: [
+                "circular",
+            ];
+
+            Image {
+                icon-name: "document-edit-symbolic";
+            }
+
             clicked => $on_edit_clicked();
         }
 
         Button delete_button {
-            css-classes: ["circular"];
-            Image { icon-name: "user-trash-symbolic"; }
+            css-classes: [
+                "circular",
+            ];
+
+            Image {
+                icon-name: "user-trash-symbolic";
+            }
+
             clicked => $on_delete_clicked();
         }
     }

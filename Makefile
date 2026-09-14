@@ -1,9 +1,9 @@
 CC ?= gcc
 
 CFLAGS = -Wall -Wextra -O2 -I./include
-CFLAGS += $(shell pkg-config --cflags gtk4 json-glib-1.0 libzip)
+CFLAGS += $(shell pkg-config --cflags gtk4 json-glib-1.0)
 
-LDLIBS := $(shell pkg-config --libs gtk4 json-glib-1.0 libzip) -lsodium -lcrypto -lssl
+LDLIBS := $(shell pkg-config --libs gtk4 json-glib-1.0) -lsodium -lcrypto -lssl
 
 SRC := $(shell find src -name '*.c')
 OBJ := $(patsubst src/%.c, build/%.o, $(SRC))

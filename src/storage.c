@@ -44,7 +44,7 @@ bool load_accounts() {
     }
 
     uint8_t *accounts_buf = ec_malloc(fsize);
-    fread(accounts_buf, 1, fsize, fp);
+    ec_fread(accounts_buf, 1, fsize, fp);
     fclose(fp);
 
     AccountHeader *hdr = (AccountHeader *)accounts_buf;
@@ -484,7 +484,7 @@ uint8_t *get_user_salt() {
         free(hdr);
         return NULL;
     }
-    fread(hdr, 1, HEADER_LEN, fp);
+    ec_fread(hdr, 1, HEADER_LEN, fp);
     fclose(fp);
     uint8_t *salt = ec_malloc(SALT_LEN);
     memcpy(salt, hdr->salt, SALT_LEN);
@@ -538,7 +538,7 @@ int storage_dump_json(char *vault, char **out, uint8_t *key, bool pretty) {
     }
 
     uint8_t *vault_buf = ec_malloc(fsize);
-    fread(vault_buf, 1, fsize, fp);
+    ec_fread(vault_buf, 1, fsize, fp);
     fclose(fp);
 
     VaultHeader *hdr = ec_malloc(HEADER_LEN);
@@ -807,7 +807,7 @@ int storage_read_vault_with_key(char *vault_path, uint8_t *key, PasswdEntry **en
     }
 
     uint8_t *vault_buf = ec_malloc(fsize);
-    fread(vault_buf, 1, fsize, fp);
+    ec_fread(vault_buf, 1, fsize, fp);
     fclose(fp);
 
     *hdr = ec_malloc(HEADER_LEN);

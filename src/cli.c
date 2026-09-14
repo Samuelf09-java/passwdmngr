@@ -56,8 +56,7 @@ static bool read_password(char *buf, size_t buflen) {
     SetConsoleMode(hStdin, mode & ~ENABLE_ECHO_INPUT);
 
     if (!fgets(buf, buflen, stdin))
-        ;
-    return false;
+        return false;
 
     SetConsoleMode(hStdin, mode); // restore echo
 
@@ -78,8 +77,7 @@ static bool read_password(char *buf, size_t buflen) {
 #else
     // Fallback: echoing cannot be disabled
     if (!fgets(buf, buflen, stdin))
-        ;
-    return false;
+        return false;
 #endif
 
     buf[strcspn(buf, "\n")] = 0;
@@ -588,7 +586,7 @@ static int run_changeusername(char *new_uname) {
 
     char buf[3];
     buf[0] = buf[1] = 0;
-    fgets(buf, sizeof(buf), stdin);
+    ec_fgets(buf, sizeof(buf), stdin);
     buf[strcspn(buf, "\n")] = 0;
 
     if (buf[0] != 'Y' || buf[1]) {
@@ -601,7 +599,7 @@ static int run_changeusername(char *new_uname) {
     if (!new_uname) {
         uname = ec_calloc(MAX_UNAME_LEN + 1, sizeof(char));
         printf("Enter new username: ");
-        fgets(uname, MAX_UNAME_LEN + 1, stdin);
+        ec_fgets(uname, MAX_UNAME_LEN + 1, stdin);
         uname[strcspn(uname, "\n")] = 0;
     } else
         uname = strdup(new_uname);
@@ -689,6 +687,9 @@ static int run_changeusername(char *new_uname) {
     free(new_hash_str);
     free(username);
     username = uname;
+    free(cmd_prompt);
+    cmd_prompt = ec_malloc(strlen("passwdmngr - ->") + strlen(uname) + 1);
+    sprintf(cmd_prompt, "passwdmngr - %s->", uname);
 
     return 0;
 }
@@ -840,7 +841,7 @@ try_with_passwd:
     }
 
     VaultHeader *hdr = ec_malloc(HEADER_LEN);
-    fread(hdr, 1, HEADER_LEN, fp);
+    ec_fread(hdr, 1, HEADER_LEN, fp);
     fclose(fp);
 
     if (!derive_vault_key(passwd_buf, hdr->salt, key, sizeof(key))) {
@@ -1188,12 +1189,12 @@ static int run_import(char *path, char *id_list, int mode) {
                            import_entries[i].service);
 
                     char buf[7];
-                    fgets(buf, sizeof(buf), stdin);
+                    ec_fgets(buf, sizeof(buf), stdin);
                     buf[strcspn(buf, "\n")] = 0;
 
                     while (!buf[0] || buf[1] || (buf[0] != '1' && buf[0] != '2' && buf[0] != '3' && buf[0] != '4')) {
                         printf("Invalid input!\nPlease try again ->");
-                        fgets(buf, sizeof(buf), stdin);
+                        ec_fgets(buf, sizeof(buf), stdin);
                         buf[strcspn(buf, "\n")] = 0;
                     }
 
@@ -1213,11 +1214,11 @@ static int run_import(char *path, char *id_list, int mode) {
                         // rename
                         printf("Enter new name for imported entry: ");
                         char name_buf[129];
-                        fgets(name_buf, sizeof(name_buf), stdin);
+                        ec_fgets(name_buf, sizeof(name_buf), stdin);
                         name_buf[strcspn(name_buf, "\n")] = 0;
                         while (!name_buf[0] || is_duplicate_service(name_buf)) {
                             printf("Invalid name! (cannot be blank or duplicate)\nPlease try again: ");
-                            fgets(name_buf, sizeof(name_buf), stdin);
+                            ec_fgets(name_buf, sizeof(name_buf), stdin);
                             name_buf[strcspn(name_buf, "\n")] = 0;
                         }
 
@@ -1374,7 +1375,7 @@ static int run_inspect(char *path, bool hexdump) {
 
     uint8_t *data_buf = ec_malloc(fsize);
 
-    fread(data_buf, 1, fsize, fp);
+    ec_fread(data_buf, 1, fsize, fp);
     fclose(fp);
 
     if (fsize < 6) {
@@ -1964,7 +1965,7 @@ static int run_encrypt(char *text, char *hex, char *file, char *binfile, char *k
         }
 
         uint8_t *hex_buf = ec_malloc(fsize);
-        fread(hex_buf, 1, fsize, fp);
+        ec_fread(hex_buf, 1, fsize, fp);
         fclose(fp);
 
         data = hex_to_raw((char *)hex_buf, &data_len);
@@ -1991,7 +1992,7 @@ static int run_encrypt(char *text, char *hex, char *file, char *binfile, char *k
         }
 
         data = ec_malloc(data_len);
-        fread(data, 1, data_len, fp);
+        ec_fread(data, 1, data_len, fp);
         fclose(fp);
     }
 
@@ -2093,7 +2094,7 @@ static int run_decrypt(char *b64, char *hex, char *file, char *binfile, char *ke
         }
 
         uint8_t *tmp_buf = ec_malloc(fsize + 1);
-        fread(tmp_buf, 1, fsize, fp);
+        ec_fread(tmp_buf, 1, fsize, fp);
         fclose(fp);
         tmp_buf[fsize] = 0;
 
@@ -2123,7 +2124,7 @@ static int run_decrypt(char *b64, char *hex, char *file, char *binfile, char *ke
         }
 
         ciphertext = ec_malloc(ciphertext_len);
-        fread(ciphertext, 1, ciphertext_len, fp);
+        ec_fread(ciphertext, 1, ciphertext_len, fp);
         fclose(fp);
     }
 

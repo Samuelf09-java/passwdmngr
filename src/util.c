@@ -297,10 +297,6 @@ void *ec_realloc(void *ptr, size_t size) {
     return new_ptr;
 }
 
-static inline int is_horizontal_space(unsigned char c) {
-    return (c == ' ' || c == '\t');
-}
-
 int count_substrings(const char *haystack, const char *needle) {
     if (!haystack || !needle || !*needle)
         return 0;

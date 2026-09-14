@@ -117,6 +117,32 @@ bool derive_vault_key(const char *passwd, const uint8_t *salt, uint8_t *key_out,
     return res;
 }
 
+char *gen_passwd(int len, char *special, bool digits, bool capitals, bool lowers) {
+
+    if (len <= 0) {
+        util_log(ERROR, "Invalid password length in gen_passwd!");
+        return NULL;
+    }
+
+    int num_chars = strlen(special);
+    if (digits)
+        num_chars += 10;
+    if (capitals)
+        num_chars += 26;
+    if (lowers)
+        num_chars += 26;
+    if (!num_chars) {
+        util_log(ERROR, "No characters to generate password with!");
+        return NULL;
+    }
+
+    for (int i = 0; i < len; i++) {
+        srand(clock());
+    }
+
+    return NULL; // TMP
+}
+
 int aes_gcm_encrypt(uint8_t *plaintext, int plaintext_len, uint8_t *key, uint8_t *iv, int iv_len, uint8_t *ciphertext,
                     uint8_t *tag) {
     X(iv_len);

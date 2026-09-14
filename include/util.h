@@ -18,6 +18,7 @@ extern const char PATH_SEPARATOR;
      c == '9' || c == 'a' || c == 'b' || c == 'c' || c == 'd' || c == 'e' || c == 'f' || c == 'A' || c == 'B' ||       \
      c == 'C' || c == 'D' || c == 'E' || c == 'F')
 #define is_alpha(c) ((c >= 0x41 && c <= 0x5a) || (c >= 0x61 && c <= 0x7a))
+#define is_horizontal_space(c) (c == ' ' || c == '\t')
 
 enum ErrorType { WARN_D, NONFATAL_D, FATAL_D };
 
@@ -49,3 +50,21 @@ void *ec_calloc(size_t nmeb, size_t size);
 void *ec_realloc(void *ptr, size_t size);
 int   count_substrings(const char *haystack, const char *needle);
 char *trim(char *s);
+
+// wrappers for fgets and fread to assert return values
+#define ec_fgets(__s, __n, __stream)                                                                                   \
+    do {                                                                                                               \
+        util_assert(fgets(__s, __n, __stream) != NULL, "fgets failed");                                                \
+    } while (0)
+
+static inline void ec_fread(void *__restrict__ __ptr, size_t __size, size_t __n, FILE *__restrict__ __stream) {
+    size_t n = fread(__ptr, __size, __n, __stream);
+    if (n < (size_t)__n) {
+        if (ferror(__stream))
+            util_log(ERROR, "fread returned short: read error");
+        else if (feof(__stream))
+            util_log(DEBUG, "fread returned short: EOF");
+        else
+            util_log(DEBUG, "fread returned short: unknown cause");
+    }
+}

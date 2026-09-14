@@ -1,6 +1,6 @@
 #! /bin/bash
 
-cloc . --not-match-d build --not-match-d resources/generated
+cloc . --not-match-d build --not-match-d resources/generated --not-match-d external
 
 make clean
 

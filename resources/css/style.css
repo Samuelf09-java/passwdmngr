@@ -9,7 +9,7 @@ window {
     background-color: #2a2a2a;
     border-radius: 12px;
     padding: 20px;
-    box-shadow: 0 0 20px rgba(0,0,0,0.4);
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
 }
 
 label {
@@ -29,7 +29,7 @@ passwordentry {
 entry:focus,
 passwordentry:focus {
     border-color: #5a8cff;
-    box-shadow: 0 0 0 2px rgba(90,140,255,0.3);
+    box-shadow: 0 0 0 2px rgba(90, 140, 255, 0.3);
 }
 
 button {
@@ -82,7 +82,7 @@ scrolledwindow {
     border-radius: 8px;
 }
 
-paned > separator {
+paned>separator {
     background-color: #333;
 }
 
@@ -110,4 +110,18 @@ menubar {
 notes_text {
     padding: 8px;
     border-radius: 7px;
+}
+
+.copy-button {
+    padding: 0;
+    min-width: 0;
+    min-height: 0;
+    border: none;
+}
+
+.copy-button>image {
+    padding: 0;
+    margin: 0;
+    min-width: 16px;
+    min-height: 16px;
 }
