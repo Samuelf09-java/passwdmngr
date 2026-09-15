@@ -882,6 +882,11 @@ bool storage_read_user_vault() {
 
     VaultHeader *hdr = ec_malloc(HEADER_LEN);
     num_entries      = storage_read_vault(vault_path, &entries, &hdr);
+    if (num_entries < 0) {
+        util_log(ERROR, "Failed to load user vault!");
+        free(hdr);
+        return false;
+    }
 
     time_t     t             = (time_t)hdr->timestamp;
     struct tm *last_modified = localtime(&t);
@@ -890,6 +895,7 @@ bool storage_read_user_vault() {
 
     util_log(DEBUG, "Loaded %d entries from user vault; last modified %s", num_entries, time_buf);
 
+    free(hdr);
     return true;
 }
 

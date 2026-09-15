@@ -314,16 +314,23 @@ static int run_login(char *uname) {
     printf("\n");
 
     if (verify_account(uname, passwd)) {
-        free(cmd_prompt);
-        cmd_prompt = ec_malloc(strlen("passwdmngr - ->") + strlen(uname) + 1);
-        sprintf(cmd_prompt, "passwdmngr - %s->", uname);
-        username   = strdup(uname);
+        if (username)
+            free(username);
+        username = strdup(uname);
+
         tmp_passwd = strdup(passwd);
 
         if (!storage_read_user_vault()) {
             util_log(FATAL, "Failed to read user vault!");
+            wipe_mem(tmp_passwd, strlen(tmp_passwd));
+            free(username);
+            username = NULL;
             return -2;
         }
+
+        free(cmd_prompt);
+        cmd_prompt = ec_malloc(strlen("passwdmngr - ->") + strlen(uname) + 1);
+        sprintf(cmd_prompt, "passwdmngr - %s->", uname);
 
         curr_prefs = get_user_prefs(uname);
         if (!curr_prefs) {
@@ -649,6 +656,8 @@ static int run_changeusername(char *new_uname) {
         free(new_hash);
         return -6;
     }
+
+    memcpy(acc->uname_hash, new_hash, HASH_LEN);
 
     save_accounts();
 
