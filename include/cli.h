@@ -13,9 +13,10 @@ enum Commands {
     DUMPENTRIES_CMD,
     MKENTRY_CMD,
     RMENTRY_CMD,
+    GENPASS_CMD,
     IMPORT_CMD,
     EXPORT_CMD,
-    INSPECT_CMD, // unimpl
+    INSPECT_CMD,
     RANDOM_CMD,
     MKKEY_CMD,
     HASH_CMD,

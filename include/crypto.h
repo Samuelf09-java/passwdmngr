@@ -11,7 +11,8 @@ char *hash_uname(const char *uname);
 
 uint8_t *sha_256_hash(uint8_t *data, size_t len);
 
-bool derive_vault_key(const char *passwd, const uint8_t *salt, uint8_t *key_out, size_t key_len);
+bool  derive_vault_key(const char *passwd, const uint8_t *salt, uint8_t *key_out, size_t key_len);
+char *gen_passwd(int len, char *special, bool digits, bool uppers, bool lowers);
 
 int aes_gcm_encrypt(uint8_t *plaintext, int plaintext_len, uint8_t *key, uint8_t *iv, int iv_len, uint8_t *ciphertext,
                     uint8_t *tag);

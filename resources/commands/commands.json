@@ -197,6 +197,32 @@
             ]
         },
         {
+            "name": "genpass",
+            "aliases": [
+                "newpass",
+                "genpasswd",
+                "generatepassword",
+                "newpasswd"
+            ],
+            "args": [
+                {
+                    "name": "length",
+                    "type": "NUMBER",
+                    "excl_group": 0
+                },
+                {
+                    "name": "special",
+                    "type": "STRING",
+                    "excl_group": 0
+                }
+            ],
+            "flags": [
+                "no-digits",
+                "no-upper",
+                "no-lower"
+            ]
+        },
+        {
             "name": "import",
             "aliases": [
                 "imp"

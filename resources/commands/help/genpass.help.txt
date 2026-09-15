@@ -1,0 +1,17 @@
+Generate a new password
+
+Aliases:
+  newpass
+  genpasswd
+  generatepassword
+  newpasswd
+
+Arguments:
+  length (number, optional): password length (defaults to 24)
+  special (string, optional): string containing one of each special
+    character to be included (default: "!@#$%^&*()-_=+[]{};:,.<>?/")
+
+Flags:
+  --no-digits: don't include digits (0-9)
+  --no-upper: don't include uppercase letters (A-Z)
+  --no-lower: don't include lowercase letters (a-z)

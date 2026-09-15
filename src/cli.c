@@ -1010,6 +1010,26 @@ static int run_rmentry(char *service, int id, bool force) {
     return 0;
 }
 
+static int run_genpass(int len, char *special, bool no_digits, bool no_upper, bool no_lower) {
+
+    if (len <= 0)
+        len = 24;
+    char *pass = NULL;
+    if (!special)
+        pass = gen_passwd(len, "!@#$%^&*()-_=+[]{};:,.<>?/", !no_digits, !no_upper, !no_lower);
+    else
+        pass = gen_passwd(len, special, !no_digits, !no_upper, !no_lower);
+
+    if (!pass) {
+        util_log(ERROR, "Failed to generate password!");
+        return -1;
+    }
+
+    printf("%s\n", pass);
+
+    return 0;
+}
+
 static int run_import(char *path, char *id_list, int mode) {
 
     REQUIRES_LOGIN
@@ -2374,6 +2394,14 @@ static int handle_cmd(Command *cmd) {
         int_nullables[1]  = cmd->args[1].value ? *(int *)cmd->args[1].value : -1;
         bool_nullables[2] = cmd->args[2].value ? *(bool *)cmd->args[2].value : false;
         return run_rmentry((char *)cmd->args[0].value, int_nullables[1], bool_nullables[2]);
+
+    case GENPASS_CMD:
+        int_nullables[0]  = cmd->args[0].value ? *(int *)cmd->args[0].value : -1;
+        bool_nullables[2] = cmd->args[2].value ? *(bool *)cmd->args[2].value : false;
+        bool_nullables[3] = cmd->args[3].value ? *(bool *)cmd->args[3].value : false;
+        bool_nullables[4] = cmd->args[4].value ? *(bool *)cmd->args[4].value : false;
+        return run_genpass(int_nullables[0], cmd->args[1].value, bool_nullables[2], bool_nullables[3],
+                           bool_nullables[4]);
 
     case IMPORT_CMD:
         int_nullables[2] = cmd->args[2].value ? *(int *)cmd->args[2].value : 2;

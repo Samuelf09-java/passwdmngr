@@ -117,17 +117,18 @@ bool derive_vault_key(const char *passwd, const uint8_t *salt, uint8_t *key_out,
     return res;
 }
 
-char *gen_passwd(int len, char *special, bool digits, bool capitals, bool lowers) {
+char *gen_passwd(int len, char *special, bool digits, bool uppers, bool lowers) {
 
     if (len <= 0) {
         util_log(ERROR, "Invalid password length in gen_passwd!");
         return NULL;
     }
 
-    int num_chars = strlen(special);
+    int spec_len  = strlen(special);
+    int num_chars = spec_len;
     if (digits)
         num_chars += 10;
-    if (capitals)
+    if (uppers)
         num_chars += 26;
     if (lowers)
         num_chars += 26;
@@ -136,11 +137,48 @@ char *gen_passwd(int len, char *special, bool digits, bool capitals, bool lowers
         return NULL;
     }
 
+    char *out = ec_malloc(len + 1);
+
     for (int i = 0; i < len; i++) {
-        srand(clock());
+        int rand_num = randombytes_uniform(num_chars);
+
+        if (rand_num < spec_len) {
+            out[i] = special[rand_num];
+            continue;
+        }
+
+        rand_num -= spec_len;
+
+        if (digits) {
+            if (rand_num < 10) {
+                out[i] = 0x30 + rand_num;
+                continue;
+            } else
+                rand_num -= 10;
+        }
+
+        if (uppers) {
+            if (rand_num < 26) {
+                out[i] = 0x41 + rand_num;
+                continue;
+            } else
+                rand_num -= 26;
+        }
+
+        if (lowers) {
+            if (rand_num < 26) {
+                out[i] = 0x61 + rand_num;
+                continue;
+            } else {
+                util_log(ERROR, "rand_num is greater than num_chars! (bug)");
+                free(out);
+                return NULL;
+            }
+        }
     }
 
-    return NULL; // TMP
+    out[len] = 0;
+    return out;
 }
 
 int aes_gcm_encrypt(uint8_t *plaintext, int plaintext_len, uint8_t *key, uint8_t *iv, int iv_len, uint8_t *ciphertext,

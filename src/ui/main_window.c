@@ -351,6 +351,13 @@ static void on_add_entry_clicked(GtkButton *button, MainWindow *self) {
     g_signal_connect(edit_box, "cancel", G_CALLBACK(on_edit_cancel), self);
     edit_box->edit_mode = ENTRY_ADD;
     edit_box->entry_id  = storage_get_next_id();
+    char *new_pass      = gen_passwd(24, "!@#$%^&*()-_=+[]{};:,.<>?/", true, true, true);
+    if (!new_pass) {
+        util_log(ERROR, "gen_passwd failed!");
+        return;
+    }
+    gtk_editable_set_text(GTK_EDITABLE(edit_box->password_entry), new_pass);
+    free(new_pass);
 
     gtk_box_append(GTK_BOX(self->content_area), GTK_WIDGET(edit_box));
 }

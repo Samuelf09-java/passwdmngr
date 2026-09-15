@@ -13,6 +13,7 @@
     <file alias="dumpentries.help.txt">commands/help/dumpentries.help.txt</file>
     <file alias="mkentry.help.txt">commands/help/mkentry.help.txt</file>
     <file alias="rmentry.help.txt">commands/help/rmentry.help.txt</file>
+    <file alias="genpass.help.txt">commands/help/genpass.help.txt</file>
     <file alias="import.help.txt">commands/help/import.help.txt</file>
     <file alias="export.help.txt">commands/help/export.help.txt</file>
     <file alias="inspect.help.txt">commands/help/inspect.help.txt</file>
