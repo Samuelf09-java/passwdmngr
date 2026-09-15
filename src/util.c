@@ -18,7 +18,7 @@ char *util_get_app_dir() {
         return NULL;
     root = ec_malloc(strlen(home) + strlen("/.local/share/passwdmngr/") + 1);
     if (!root) {
-        util_log(ERROR, "Failed to allocate memory for root path");
+        util_log(LOG_ERROR, "Failed to allocate memory for root path");
         return NULL;
     }
     sprintf(root, "%s/.local/share/passwdmngr/", home);
@@ -29,7 +29,7 @@ char *util_get_app_dir() {
         return NULL;
     root = ec_malloc(strlen(home) + strlen("/Library/Application Support/passwdmngr/") + 1);
     if (!root) {
-        util_log(ERROR, "Failed to allocate memory for root path");
+        util_log(LOG_ERROR, "Failed to allocate memory for root path");
         return NULL;
     }
     sprintf(root, "%s/Library/Application Support/passwdmngr/", home);
@@ -41,7 +41,7 @@ char *util_get_app_dir() {
         return NULL;
     root = ec_malloc(strlen(local) + strlen("\\passwdmngr\\") + 1);
     if (!root) {
-        util_log(ERROR, "Failed to allocate memory for root path");
+        util_log(LOG_ERROR, "Failed to allocate memory for root path");
         return NULL;
     }
     sprintf(root, "%s\\passwdmngr\\", local);
@@ -140,7 +140,7 @@ bool delete_recursive(const char *path, GError **error) {
 
 void util_assert(int cond, char *fail_msg) {
     if (!cond) {
-        util_log(FATAL, "Assertion failed: %s", fail_msg);
+        util_log(LOG_FATAL, "Assertion failed: %s", fail_msg);
         exit(2); // failed assertion
     }
 }
@@ -148,7 +148,7 @@ void util_assert(int cond, char *fail_msg) {
 void util_log(LogLevel level, const char *fmt, ...) {
 
 #ifndef DEBUGMSG // set by Makefile to enable debugging
-    if (level == DEBUG)
+    if (level == LOG_DEBUG)
         return;
 #endif
 
@@ -159,13 +159,13 @@ void util_log(LogLevel level, const char *fmt, ...) {
 
     char *prefix = NULL;
 
-    if (level == DEBUG)
+    if (level == LOG_DEBUG)
         prefix = "[passwdmngr/DEBUG]: ";
-    else if (level == INFO)
+    else if (level == LOG_INFO)
         prefix = "[passwdmngr/INFO]: ";
-    else if (level == WARN)
+    else if (level == LOG_WARN)
         prefix = "[passwdmngr/WARNING]: ";
-    else if (level == ERROR)
+    else if (level == LOG_ERROR)
         prefix = "[passwdmngr/ERROR]: ";
     else
         prefix = "[passwdmngr/FATAL ERROR]: ";
@@ -182,7 +182,7 @@ void util_log(LogLevel level, const char *fmt, ...) {
     sprintf(stdout_msg, "%s%s", prefix, msg);
     g_free(msg);
 
-    if (level > WARN)
+    if (level > LOG_WARN)
         g_printerr("%s\n", stdout_msg);
     else
         g_print("%s\n", stdout_msg);
@@ -219,15 +219,15 @@ void util_error_dialog(GtkWindow *parent, const char *msg, ErrorType error_type,
 
     switch (error_type) {
     case WARN_D:
-        level = WARN;
+        level = LOG_WARN;
         break;
 
     case NONFATAL_D:
-        level = ERROR;
+        level = LOG_ERROR;
         break;
 
     default: // fatal
-        level = FATAL;
+        level = LOG_FATAL;
         break;
     }
 
@@ -263,7 +263,7 @@ void util_warn_d(const char *msg) {
 
 bool util_check_ptr(void *ptr, const char *msg) {
     if (!ptr) {
-        util_log(ERROR, msg);
+        util_log(LOG_ERROR, msg);
         return false;
     }
     return true;

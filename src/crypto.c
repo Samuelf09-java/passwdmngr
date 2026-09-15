@@ -10,7 +10,7 @@ bool verify_account(const char *uname, const char *passwd) {
     uint8_t *uname_hash = sha_256_hash((uint8_t *)uname, strlen(uname));
 
     if (!uname_hash) {
-        util_log(ERROR, "Failed to hash username");
+        util_log(LOG_ERROR, "Failed to hash username");
         return false;
     }
 
@@ -28,7 +28,7 @@ bool verify_account(const char *uname, const char *passwd) {
 bool verify_pwhash(uint8_t *hash, char *passwd) {
     uint8_t *new_hash = ec_malloc(HASH_LEN + SALT_LEN);
     if (!hash_pw_with_salt(passwd, new_hash, HASH_LEN + SALT_LEN, hash)) {
-        util_log(ERROR, "Failed to hash provided password");
+        util_log(LOG_ERROR, "Failed to hash provided password");
         return false;
     }
 
@@ -38,13 +38,13 @@ bool verify_pwhash(uint8_t *hash, char *passwd) {
 bool hash_pw_with_salt(const char *passwd, uint8_t *out, size_t out_len, uint8_t *salt) {
 
     if (out_len != HASH_LEN + SALT_LEN) {
-        util_log(ERROR, "Output buffer too small for password hash + salt");
+        util_log(LOG_ERROR, "Output buffer too small for password hash + salt");
         return false;
     }
 
     if (crypto_pwhash(out + 16, HASH_LEN, passwd, strlen(passwd), salt, crypto_pwhash_OPSLIMIT_INTERACTIVE,
                       crypto_pwhash_MEMLIMIT_INTERACTIVE, crypto_pwhash_ALG_DEFAULT)) {
-        util_log(ERROR, "Failed to hash password with crypto_pwhash");
+        util_log(LOG_ERROR, "Failed to hash password with crypto_pwhash");
         return false;
     }
 
@@ -120,7 +120,7 @@ bool derive_vault_key(const char *passwd, const uint8_t *salt, uint8_t *key_out,
 char *gen_passwd(int len, char *special, bool digits, bool uppers, bool lowers) {
 
     if (len <= 0) {
-        util_log(ERROR, "Invalid password length in gen_passwd!");
+        util_log(LOG_ERROR, "Invalid password length in gen_passwd!");
         return NULL;
     }
 
@@ -133,7 +133,7 @@ char *gen_passwd(int len, char *special, bool digits, bool uppers, bool lowers) 
     if (lowers)
         num_chars += 26;
     if (!num_chars) {
-        util_log(ERROR, "No characters to generate password with!");
+        util_log(LOG_ERROR, "No characters to generate password with!");
         return NULL;
     }
 
@@ -170,7 +170,7 @@ char *gen_passwd(int len, char *special, bool digits, bool uppers, bool lowers) 
                 out[i] = 0x61 + rand_num;
                 continue;
             } else {
-                util_log(ERROR, "rand_num is greater than num_chars! (bug)");
+                util_log(LOG_ERROR, "rand_num is greater than num_chars! (bug)");
                 free(out);
                 return NULL;
             }

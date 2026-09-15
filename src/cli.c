@@ -1,4 +1,5 @@
 #ifdef _WIN32
+#include <dirent.h> // from msys2
 #include <windows.h>
 #else
 #include <termios.h>
@@ -131,7 +132,7 @@ static bool parse_id_list(char *id_list, int *out, int *num_ids) {
 
         if (*p == ',' || *p == '\0') {
             if (n == 0) {
-                util_log(ERROR, "Failed to parse id_list: empty number!");
+                util_log(LOG_ERROR, "Failed to parse id_list: empty number!");
                 return false;
             }
 
@@ -142,7 +143,7 @@ static bool parse_id_list(char *id_list, int *out, int *num_ids) {
 
             for (int i = 0; i < *num_ids - 1; i++) {
                 if (out[i] == out[*num_ids - 1]) {
-                    util_log(ERROR, "Failed to parse id_list: duplicate id!");
+                    util_log(LOG_ERROR, "Failed to parse id_list: duplicate id!");
                     return false;
                 }
             }
@@ -154,14 +155,14 @@ static bool parse_id_list(char *id_list, int *out, int *num_ids) {
         }
 
         if (!is_digit(*p)) {
-            util_log(ERROR, "Failed to parse id_list: invalid format!");
+            util_log(LOG_ERROR, "Failed to parse id_list: invalid format!");
             return false;
         }
 
         if (n < (int)sizeof(numbuf) - 1)
             numbuf[n++] = *p;
         else {
-            util_log(ERROR, "Failed to parse id_list: number too long!");
+            util_log(LOG_ERROR, "Failed to parse id_list: number too long!");
             return false;
         }
     }
@@ -246,7 +247,7 @@ static uint8_t get_raw_byte(char *hex) {
             break;
 
         default:
-            util_log(ERROR, "Invalid hex char! (bug)");
+            util_log(LOG_ERROR, "Invalid hex char! (bug)");
             return 0;
         }
     }
@@ -264,13 +265,13 @@ static uint8_t *hex_to_raw(char *hex_str, int *raw_len) {
 
     for (int i = 0; i < len; i++) {
         if (!is_hex(hex_str[i])) {
-            util_log(ERROR, "Invalid hex string!");
+            util_log(LOG_ERROR, "Invalid hex string!");
             return NULL;
         }
     }
 
     if (len % 2) {
-        util_log(ERROR, "Cannot convert to raw bytes: uneven number of hex digits");
+        util_log(LOG_ERROR, "Cannot convert to raw bytes: uneven number of hex digits");
         return NULL;
     }
 
@@ -321,7 +322,7 @@ static int run_login(char *uname) {
         tmp_passwd = strdup(passwd);
 
         if (!storage_read_user_vault()) {
-            util_log(FATAL, "Failed to read user vault!");
+            util_log(LOG_FATAL, "Failed to read user vault!");
             wipe_mem(tmp_passwd, strlen(tmp_passwd));
             free(username);
             username = NULL;
@@ -334,18 +335,18 @@ static int run_login(char *uname) {
 
         curr_prefs = get_user_prefs(uname);
         if (!curr_prefs) {
-            util_log(FATAL, "Failed to load user preferences!");
+            util_log(LOG_FATAL, "Failed to load user preferences!");
             return -3;
         }
 
         logged_in = true;
-        util_log(INFO, "User %s: Login successful", uname);
+        util_log(LOG_INFO, "User %s: Login successful", uname);
 
         free(uname);
         commands[LOGIN_CMD].args[0].value = NULL;
         free(passwd);
     } else {
-        util_log(ERROR, "Invalid username or password");
+        util_log(LOG_ERROR, "Invalid username or password");
 
         free(uname);
         commands[LOGIN_CMD].args[0].value = NULL;
@@ -363,7 +364,7 @@ static int run_logout() {
 
     logged_in = false;
 
-    util_log(INFO, "Logging out user %s", username);
+    util_log(LOG_INFO, "Logging out user %s", username);
 
     wipe_passwd_entries(entries, num_entries);
     entries     = NULL;
@@ -388,7 +389,7 @@ static int run_logout() {
         curr_prefs = NULL;
     }
 
-    util_log(DEBUG, "Cleared all user-specific globals from storage.c");
+    util_log(LOG_DEBUG, "Cleared all user-specific globals from storage.c");
 
     return 0;
 }
@@ -461,13 +462,13 @@ static int run_mkaccount(char *new_uname, char *new_passwd, bool nologin) {
     }
 
     if (!storage_read_user_vault()) {
-        util_log(FATAL, "Failed to read user vault!");
+        util_log(LOG_FATAL, "Failed to read user vault!");
         return -4;
     }
 
     curr_prefs = get_user_prefs(new_uname);
     if (!curr_prefs) {
-        util_log(FATAL, "Failed to load user preferences!");
+        util_log(LOG_FATAL, "Failed to load user preferences!");
         free(new_uname);
         return -3;
     }
@@ -498,12 +499,12 @@ static int run_rmaccount(bool force) {
         printf("Enter your password to confirm account deletion (will not be echoed): ");
         char buf[MAX_PASSWD_LEN + 1];
         if (!read_password(buf, sizeof(buf))) {
-            util_log(ERROR, "Failed to read password from user input!");
+            util_log(LOG_ERROR, "Failed to read password from user input!");
             return -3;
         }
 
         if (!verify_account(username, buf)) {
-            util_log(ERROR, "Failed to delete account: Incorrect password");
+            util_log(LOG_ERROR, "Failed to delete account: Incorrect password");
             return -1;
         }
 
@@ -511,7 +512,7 @@ static int run_rmaccount(bool force) {
     }
 
     if (!storage_delete_account(username)) {
-        util_log(ERROR, "Failed to delete account");
+        util_log(LOG_ERROR, "Failed to delete account");
         return -2;
     }
 
@@ -525,58 +526,58 @@ static int run_changepassword() {
     char curr_pass[MAX_PASSWD_LEN + 1];
     printf("Enter your current password (will not be echoed): ");
     if (!read_password(curr_pass, sizeof(curr_pass))) {
-        util_log(ERROR, "Failed to read data from stdin!");
+        util_log(LOG_ERROR, "Failed to read data from stdin!");
         return -3;
     }
     printf("\n");
 
     if (!strlen(curr_pass)) {
-        util_log(ERROR, "No password provided!");
+        util_log(LOG_ERROR, "No password provided!");
         return -4;
     }
 
     if (!verify_account(username, curr_pass)) {
-        util_log(ERROR, "Wrong password!");
+        util_log(LOG_ERROR, "Wrong password!");
         return -5;
     }
 
     char new_pass[MAX_PASSWD_LEN + 1];
     printf("Enter your new password (will not be echoed): ");
     if (!read_password(new_pass, sizeof(new_pass))) {
-        util_log(ERROR, "Failed to read data from stdin!");
+        util_log(LOG_ERROR, "Failed to read data from stdin!");
         return -3;
     }
     printf("\n");
 
     if (!strlen(new_pass)) {
-        util_log(ERROR, "Password cannot be blank!");
+        util_log(LOG_ERROR, "Password cannot be blank!");
         return -6;
     }
 
     if (!strcmp(curr_pass, new_pass)) {
-        util_log(WARN, "New password is the same as old password!");
+        util_log(LOG_WARN, "New password is the same as old password!");
         return -7;
     }
 
     char conf_new_pass[MAX_PASSWD_LEN + 1];
     printf("Confirm new password (will not be echoed): ");
     if (!read_password(conf_new_pass, sizeof(conf_new_pass))) {
-        util_log(ERROR, "Failed to read data from stdin!");
+        util_log(LOG_ERROR, "Failed to read data from stdin!");
         return -3;
     }
     printf("\n");
 
     if (strcmp(new_pass, conf_new_pass)) {
-        util_log(ERROR, "Passwords do not match!");
+        util_log(LOG_ERROR, "Passwords do not match!");
         return -8;
     }
 
     if (!storage_change_passwd(username, new_pass)) {
-        util_log(FATAL, "Failed to change password!");
+        util_log(LOG_FATAL, "Failed to change password!");
         return -9;
     }
 
-    util_log(INFO, "Successfully changed password");
+    util_log(LOG_INFO, "Successfully changed password");
     return 0;
 }
 
@@ -620,14 +621,14 @@ static int run_changeusername(char *new_uname) {
     char passwd_buf[MAX_PASSWD_LEN + 1];
     printf("Enter your password to confirm change (will not be echoed): ");
     if (!read_password(passwd_buf, sizeof(passwd_buf))) {
-        util_log(ERROR, "Failed to read password from stdin!");
+        util_log(LOG_ERROR, "Failed to read password from stdin!");
         free(uname);
         return -3;
     }
     printf("\n");
 
     if (!verify_account(username, passwd_buf)) {
-        util_log(ERROR, "Failed to change username: incorrect password!");
+        util_log(LOG_ERROR, "Failed to change username: incorrect password!");
         free(uname);
         return -4;
     }
@@ -638,7 +639,7 @@ static int run_changeusername(char *new_uname) {
     Account *acc = NULL;
     for (int i = 0; i < num_accounts; i++) {
         if (!memcmp(accounts[i].uname_hash, new_hash, HASH_LEN)) {
-            util_log(ERROR, "username '%s' already exists!", uname);
+            util_log(LOG_ERROR, "username '%s' already exists!", uname);
             free(old_hash);
             free(new_hash);
             free(uname);
@@ -652,7 +653,7 @@ static int run_changeusername(char *new_uname) {
     free(old_hash);
 
     if (!acc) {
-        util_log(ERROR, "Could not find old username!");
+        util_log(LOG_ERROR, "Could not find old username!");
         free(new_hash);
         return -6;
     }
@@ -665,7 +666,7 @@ static int run_changeusername(char *new_uname) {
     char *new_path = storage_get_user_vault_path(uname);
 
     if (!old_path || !new_path) {
-        util_log(ERROR, "Failed to derive old/new vault paths!");
+        util_log(LOG_ERROR, "Failed to derive old/new vault paths!");
         free(new_hash);
         return -7;
     }
@@ -676,7 +677,7 @@ static int run_changeusername(char *new_uname) {
      * (in which case there are worse things that could happen anyway)
      */
     if (rename(old_path, new_path)) {
-        util_log(ERROR, "Failed to rename vault!");
+        util_log(LOG_ERROR, "Failed to rename vault!");
         free(new_hash);
         free(old_path);
         free(new_path);
@@ -691,7 +692,7 @@ static int run_changeusername(char *new_uname) {
 
     memcpy(acc->uname_hash, new_hash, HASH_LEN);
     free(new_hash);
-    util_log(INFO, "Changed username from %s to %s (%s to %s)", username, uname, old_hash_str, new_hash_str);
+    util_log(LOG_INFO, "Changed username from %s to %s (%s to %s)", username, uname, old_hash_str, new_hash_str);
     free(old_hash_str);
     free(new_hash_str);
     free(username);
@@ -814,7 +815,7 @@ static int run_dumpentries(char *vault, bool pretty_print) {
                 printf("Failed to decrypt vault with your password!\n");
                 goto try_with_passwd;
             } else {
-                util_log(ERROR, "Failed to read vault from provided path!");
+                util_log(LOG_ERROR, "Failed to read vault from provided path!");
                 if (vault_mem_owned)
                     free(vault);
                 return res1;
@@ -832,7 +833,7 @@ try_with_passwd:
     uint8_t key[HASH_LEN];
     FILE   *fp = fopen(vault, "rb");
     if (!fp) {
-        util_log(ERROR, "Failed to open vault");
+        util_log(LOG_ERROR, "Failed to open vault");
         if (vault_mem_owned)
             free(vault);
         return -4;
@@ -843,7 +844,7 @@ try_with_passwd:
     fseek(fp, 0, SEEK_SET);
 
     if (fsize <= (int64_t)HEADER_LEN) {
-        util_log(ERROR, "Vault is too small to contain any data!");
+        util_log(LOG_ERROR, "Vault is too small to contain any data!");
         if (vault_mem_owned)
             free(vault);
         return -5;
@@ -854,7 +855,7 @@ try_with_passwd:
     fclose(fp);
 
     if (!derive_vault_key(passwd_buf, hdr->salt, key, sizeof(key))) {
-        util_log(ERROR, "Failed to derive key from provided password and salt!");
+        util_log(LOG_ERROR, "Failed to derive key from provided password and salt!");
         free(hdr);
         if (vault_mem_owned)
             free(vault);
@@ -866,7 +867,7 @@ try_with_passwd:
     int res2 = storage_dump_json(vault, &out, key, pretty_print);
 
     if (res2 < 0) {
-        util_log(ERROR, "Failed to read vault '%s'!", vault);
+        util_log(LOG_ERROR, "Failed to read vault '%s'!", vault);
         if (vault_mem_owned)
             free(vault);
         return res2;
@@ -1030,7 +1031,7 @@ static int run_genpass(int len, char *special, bool no_digits, bool no_upper, bo
         pass = gen_passwd(len, special, !no_digits, !no_upper, !no_lower);
 
     if (!pass) {
-        util_log(ERROR, "Failed to generate password!");
+        util_log(LOG_ERROR, "Failed to generate password!");
         return -1;
     }
 
@@ -1064,7 +1065,7 @@ static int run_import(char *path, char *id_list, int mode) {
     }
 
     if (import_ids && !parse_id_list(id_list, import_ids, &num_ids)) {
-        util_log(ERROR, "Failed to parse id_list");
+        util_log(LOG_ERROR, "Failed to parse id_list");
         return -17;
     }
 
@@ -1080,7 +1081,7 @@ static int run_import(char *path, char *id_list, int mode) {
 
         char passwd_buf[MAX_PASSWD_LEN + 1];
         if (!read_password(passwd_buf, sizeof(passwd_buf))) {
-            util_log(ERROR, "\nFailed to read password from command line!\n");
+            util_log(LOG_ERROR, "\nFailed to read password from command line!\n");
             if (hdr)
                 free(hdr);
             if (import_ids)
@@ -1092,7 +1093,7 @@ static int run_import(char *path, char *id_list, int mode) {
 
         uint8_t key[32];
         if (!derive_vault_key(passwd_buf, hdr->salt, key, sizeof(key))) {
-            util_log(ERROR, "Failed to derive key from user-provided password!");
+            util_log(LOG_ERROR, "Failed to derive key from user-provided password!");
             free(hdr);
             wipe_mem(passwd_buf, sizeof(passwd_buf));
             if (import_ids)
@@ -1110,7 +1111,7 @@ static int run_import(char *path, char *id_list, int mode) {
         free(hdr);
 
     if (num_import_entries < 0) {
-        util_log(ERROR, "Failed to read vault at %s", path);
+        util_log(LOG_ERROR, "Failed to read vault at %s", path);
         if (import_ids)
             free(import_ids);
         return num_import_entries;
@@ -1139,7 +1140,7 @@ static int run_import(char *path, char *id_list, int mode) {
         sprintf(backup_path, "%s%s", appdir, backup_file);
         free(appdir);
         if (!run_export(backup_path, "*")) {
-            util_log(ERROR, "Failed to export backup of current entries!");
+            util_log(LOG_ERROR, "Failed to export backup of current entries!");
             free(backup_path);
             if (import_ids)
                 free(import_ids);
@@ -1163,7 +1164,7 @@ static int run_import(char *path, char *id_list, int mode) {
         }
 
         if (!storage_write_user_vault()) {
-            util_log(ERROR, "Failed to write updated vault!");
+            util_log(LOG_ERROR, "Failed to write updated vault!");
             if (import_ids)
                 free(import_ids);
             return -14;
@@ -1173,7 +1174,7 @@ static int run_import(char *path, char *id_list, int mode) {
         if (import_ids)
             free(import_ids);
 
-        util_log(INFO, "Imported %d entries from %s", num_imports, path);
+        util_log(LOG_INFO, "Imported %d entries from %s", num_imports, path);
 
         return 0;
     }
@@ -1256,7 +1257,7 @@ static int run_import(char *path, char *id_list, int mode) {
                         import_entries[i].id      = storage_get_next_id();
 
                         if (!add_entry(import_entries + i)) {
-                            util_log(ERROR, "Failed to add renamed entry to array!");
+                            util_log(LOG_ERROR, "Failed to add renamed entry to array!");
                             wipe_passwd_entries(import_entries, num_import_entries);
                             if (import_ids)
                                 free(import_ids);
@@ -1298,11 +1299,11 @@ static int run_import(char *path, char *id_list, int mode) {
         free(import_ids);
 
     if (!storage_write_user_vault()) {
-        util_log(ERROR, "Failed to write updated vault!");
+        util_log(LOG_ERROR, "Failed to write updated vault!");
         return -14;
     }
 
-    util_log(INFO, "Imported %d entries from %s", num_imports, path);
+    util_log(LOG_INFO, "Imported %d entries from %s", num_imports, path);
 
     return 0;
 }
@@ -1350,7 +1351,7 @@ static int run_export(char *path, char *id_list) {
     }
 
     if (export_ids && !parse_id_list(id_list, export_ids, &num_ids)) {
-        util_log(ERROR, "Failed to parse id_list");
+        util_log(LOG_ERROR, "Failed to parse id_list");
         free(export_path);
         return -5;
     }
@@ -1378,7 +1379,7 @@ static int run_export(char *path, char *id_list) {
 
     storage_write_vault(path, export_entries, num_ids, salt);
 
-    util_log(INFO, "Exported %d entries to %s", num_ids, path);
+    util_log(LOG_INFO, "Exported %d entries to %s", num_ids, path);
 
     wipe_passwd_entries(export_entries, num_ids);
     free(salt);
@@ -1408,17 +1409,17 @@ static int run_inspect(char *path, bool hexdump) {
     fclose(fp);
 
     if (fsize < 6) {
-        util_log(ERROR, "File is too small to contain magic bytes!");
+        util_log(LOG_ERROR, "File is too small to contain magic bytes!");
         return -2;
     }
 
     // handle accounts.bin-formatted files
     if (!memcmp(data_buf, ACCOUNTS_MAGIC, 6)) {
 
-        util_log(DEBUG, "Handling file as accounts.bin format");
+        util_log(LOG_DEBUG, "Handling file as accounts.bin format");
 
         if ((uint64_t)fsize < sizeof(AccountHeader)) {
-            util_log(ERROR, "File is too small to contain accounts header");
+            util_log(LOG_ERROR, "File is too small to contain accounts header");
             return -3;
         }
 
@@ -1527,16 +1528,16 @@ static int run_inspect(char *path, bool hexdump) {
 
     // handle .pwmngr format
 
-    util_log(DEBUG, "Handling file as .pwmngr format");
+    util_log(LOG_DEBUG, "Handling file as .pwmngr format");
 
     if (memcmp(data_buf, VAULT_MAGIC, 6)) {
-        util_log(ERROR, "Unrecognized magic bytes!");
+        util_log(LOG_ERROR, "Unrecognized magic bytes!");
         free(data_buf);
         return -4;
     }
 
     if (fsize < (int)sizeof(VaultHeader)) {
-        util_log(ERROR, "File is too small to hold vault header!");
+        util_log(LOG_ERROR, "File is too small to hold vault header!");
         free(data_buf);
         return -5;
     }
@@ -1651,7 +1652,7 @@ static int run_inspect(char *path, bool hexdump) {
     char *b64tag   = g_base64_encode(vlt_hdr->tag, TAG_LEN);
 
     if (!b64salt || !b64nonce || !b64tag) {
-        util_log(ERROR, "Failed to convert salt/nonce/tag to base64");
+        util_log(LOG_ERROR, "Failed to convert salt/nonce/tag to base64");
         if (b64salt)
             g_free(b64salt);
         if (b64nonce)
@@ -1714,7 +1715,7 @@ static int run_mkkey(char *passwd, char *salt, bool hex_out) {
         char *buf = ec_calloc(MAX_PASSWD_LEN + 1, sizeof(char));
         printf("Enter password for the key (will not be echoed): ");
         if (!read_password(buf, MAX_PASSWD_LEN + 1)) {
-            util_log(ERROR, "Failed to read password from stdin");
+            util_log(LOG_ERROR, "Failed to read password from stdin");
             return -1;
         }
         printf("\n");
@@ -1725,14 +1726,14 @@ static int run_mkkey(char *passwd, char *salt, bool hex_out) {
         char *buf = ec_calloc(26, sizeof(char));
         printf("Enter 16-byte base64 salt: ");
         if (!fgets(buf, 26, stdin)) {
-            util_log(ERROR, "Failed to read salt from stdin");
+            util_log(LOG_ERROR, "Failed to read salt from stdin");
             return -1;
         }
         owned_salt = buf;
     }
 
     if (!owned_passwd[0] || !owned_salt[0]) {
-        util_log(ERROR, "Password or salt is NULL!");
+        util_log(LOG_ERROR, "Password or salt is NULL!");
         free(owned_passwd);
         free(owned_salt);
         return -6;
@@ -1742,13 +1743,13 @@ static int run_mkkey(char *passwd, char *salt, bool hex_out) {
     uint8_t *raw_salt = g_base64_decode(owned_salt, &salt_len);
     free(owned_salt);
     if (!raw_salt) {
-        util_log(ERROR, "Failed to decode base64 salt!");
+        util_log(LOG_ERROR, "Failed to decode base64 salt!");
         free(owned_passwd);
         return -2;
     }
 
     if (salt_len != 16) {
-        util_log(ERROR, "Invalid salt length!");
+        util_log(LOG_ERROR, "Invalid salt length!");
         g_free(raw_salt);
         free(owned_passwd);
         return -3;
@@ -1756,7 +1757,7 @@ static int run_mkkey(char *passwd, char *salt, bool hex_out) {
 
     uint8_t key[32];
     if (!derive_vault_key(owned_passwd, raw_salt, key, 32)) {
-        util_log(ERROR, "Failed to derive vault key from provided information!");
+        util_log(LOG_ERROR, "Failed to derive vault key from provided information!");
         free(owned_passwd);
         g_free(raw_salt);
         return -4;
@@ -1782,7 +1783,7 @@ static int run_mkkey(char *passwd, char *salt, bool hex_out) {
 
     char *b64 = g_base64_encode(key, 32);
     if (!b64) {
-        util_log(ERROR, "Failed to encode key as base64!");
+        util_log(LOG_ERROR, "Failed to encode key as base64!");
         return -5;
     }
 
@@ -1803,14 +1804,14 @@ static int run_hash(char *text, char *hex, bool hex_out, bool hex_out_no_space) 
         int      raw_len = 0;
         uint8_t *raw     = hex_to_raw(hex, &raw_len);
         if (!raw) {
-            util_log(ERROR, "Failed to convert hex to raw bytes!");
+            util_log(LOG_ERROR, "Failed to convert hex to raw bytes!");
             return -1;
         }
         hash = sha_256_hash(raw, raw_len);
     }
 
     if (!hash) {
-        util_log(ERROR, "Failed to hash data!");
+        util_log(LOG_ERROR, "Failed to hash data!");
         return -2;
     }
 
@@ -1828,7 +1829,7 @@ static int run_hash(char *text, char *hex, bool hex_out, bool hex_out_no_space) 
     char *b64 = g_base64_encode(hash, HASH_LEN);
     free(hash);
     if (!b64) {
-        util_log(ERROR, "Failed to encode hash as base64!");
+        util_log(LOG_ERROR, "Failed to encode hash as base64!");
         return -5;
     }
 
@@ -1848,7 +1849,7 @@ static int run_pwhash(char *passwd, char *salt, bool hex_out) {
         char *buf = ec_calloc(MAX_PASSWD_LEN + 1, sizeof(char));
         printf("Enter password to hash (will not be echoed): ");
         if (!read_password(buf, MAX_PASSWD_LEN + 1)) {
-            util_log(ERROR, "Failed to read password from stdin");
+            util_log(LOG_ERROR, "Failed to read password from stdin");
             return -1;
         }
         printf("\n");
@@ -1859,14 +1860,14 @@ static int run_pwhash(char *passwd, char *salt, bool hex_out) {
         char *buf = ec_calloc(26, sizeof(char));
         printf("Enter 16-byte base64 salt: ");
         if (!fgets(buf, 26, stdin)) {
-            util_log(ERROR, "Failed to read salt from stdin");
+            util_log(LOG_ERROR, "Failed to read salt from stdin");
             return -1;
         }
         owned_salt = buf;
     }
 
     if (!owned_passwd[0] || !owned_salt[0]) {
-        util_log(ERROR, "Password or salt is NULL!");
+        util_log(LOG_ERROR, "Password or salt is NULL!");
         free(owned_passwd);
         free(owned_salt);
         return -6;
@@ -1876,13 +1877,13 @@ static int run_pwhash(char *passwd, char *salt, bool hex_out) {
     uint8_t *raw_salt = g_base64_decode(owned_salt, &salt_len);
     free(owned_salt);
     if (!raw_salt) {
-        util_log(ERROR, "Failed to decode base64 salt!");
+        util_log(LOG_ERROR, "Failed to decode base64 salt!");
         free(owned_passwd);
         return -2;
     }
 
     if (salt_len != 16) {
-        util_log(ERROR, "Invalid salt length!");
+        util_log(LOG_ERROR, "Invalid salt length!");
         g_free(raw_salt);
         free(owned_passwd);
         return -3;
@@ -1890,7 +1891,7 @@ static int run_pwhash(char *passwd, char *salt, bool hex_out) {
 
     uint8_t pwhash[HASH_LEN + SALT_LEN];
     if (!hash_pw_with_salt(passwd, pwhash, sizeof(pwhash), raw_salt)) {
-        util_log(ERROR, "Failed to derive vault key from provided information!");
+        util_log(LOG_ERROR, "Failed to derive vault key from provided information!");
         free(owned_passwd);
         g_free(raw_salt);
         return -4;
@@ -1910,7 +1911,7 @@ static int run_pwhash(char *passwd, char *salt, bool hex_out) {
 
     char *b64 = g_base64_encode(pwhash, HASH_LEN + SALT_LEN);
     if (!b64) {
-        util_log(ERROR, "Failed to encode hash as base64!");
+        util_log(LOG_ERROR, "Failed to encode hash as base64!");
         return -5;
     }
 
@@ -1925,13 +1926,13 @@ static int run_base64encode(char *hex) {
     int      raw_len;
     uint8_t *raw = hex_to_raw(hex, &raw_len);
     if (!raw) {
-        util_log(ERROR, "Failed to convert hex string to raw bytes!");
+        util_log(LOG_ERROR, "Failed to convert hex string to raw bytes!");
         return -1;
     }
 
     char *b64 = g_base64_encode(raw, raw_len);
     if (!b64) {
-        util_log(ERROR, "Failed to convert raw bytes to base64!");
+        util_log(LOG_ERROR, "Failed to convert raw bytes to base64!");
         free(raw);
         return -2;
     }
@@ -1974,13 +1975,13 @@ static int run_encrypt(char *text, char *hex, char *file, char *binfile, char *k
 
         data = hex_to_raw(hex, &data_len);
         if (!data) {
-            util_log(ERROR, "Failed to convert hex to raw bytes!");
+            util_log(LOG_ERROR, "Failed to convert hex to raw bytes!");
             return -1;
         }
     } else if (file) {
         FILE *fp = fopen(file, "rb");
         if (!fp) {
-            util_log(ERROR, "Invalid input file path/permissions!");
+            util_log(LOG_ERROR, "Invalid input file path/permissions!");
             return -7;
         }
 
@@ -1989,7 +1990,7 @@ static int run_encrypt(char *text, char *hex, char *file, char *binfile, char *k
         fseek(fp, 0, SEEK_SET);
 
         if (!fsize) {
-            util_log(ERROR, "Input file has no data!");
+            util_log(LOG_ERROR, "Input file has no data!");
             return -8;
         }
 
@@ -2000,14 +2001,14 @@ static int run_encrypt(char *text, char *hex, char *file, char *binfile, char *k
         data = hex_to_raw((char *)hex_buf, &data_len);
         free(hex_buf);
         if (!data) {
-            util_log(ERROR, "Failed to convert hex to raw bytes!");
+            util_log(LOG_ERROR, "Failed to convert hex to raw bytes!");
             return -1;
         }
 
     } else if (binfile) {
         FILE *fp = fopen(binfile, "rb");
         if (!fp) {
-            util_log(ERROR, "Invalid input file path/permissions!");
+            util_log(LOG_ERROR, "Invalid input file path/permissions!");
             return -7;
         }
 
@@ -2016,7 +2017,7 @@ static int run_encrypt(char *text, char *hex, char *file, char *binfile, char *k
         fseek(fp, 0, SEEK_SET);
 
         if (!data_len) {
-            util_log(ERROR, "Input file has no data!");
+            util_log(LOG_ERROR, "Input file has no data!");
             return -8;
         }
 
@@ -2026,7 +2027,7 @@ static int run_encrypt(char *text, char *hex, char *file, char *binfile, char *k
     }
 
     if (!data) {
-        util_log(ERROR, "No data found to encrypt! (bug)");
+        util_log(LOG_ERROR, "No data found to encrypt! (bug)");
         return -2;
     }
 
@@ -2036,13 +2037,13 @@ static int run_encrypt(char *text, char *hex, char *file, char *binfile, char *k
     uint8_t *raw_nonce = g_base64_decode(nonce, &raw_nonce_len);
 
     if (!raw_key || !raw_nonce) {
-        util_log(ERROR, "Failed to decode base64 key/nonce!");
+        util_log(LOG_ERROR, "Failed to decode base64 key/nonce!");
         free(data);
         return -3;
     }
 
     if (raw_key_len != 32 || raw_nonce_len != NONCE_LEN) {
-        util_log(ERROR, "Invalid length for base64 key/nonce!");
+        util_log(LOG_ERROR, "Invalid length for base64 key/nonce!");
         free(data);
         return -4;
     }
@@ -2054,7 +2055,7 @@ static int run_encrypt(char *text, char *hex, char *file, char *binfile, char *k
     free(data);
 
     if (ciphertext_len <= 0) {
-        util_log(ERROR, "Failed to encrypt data! (encryption returned length <= 0)");
+        util_log(LOG_ERROR, "Failed to encrypt data! (encryption returned length <= 0)");
         return -5;
     }
 
@@ -2077,7 +2078,7 @@ static int run_encrypt(char *text, char *hex, char *file, char *binfile, char *k
     free(ciphertext);
     free(tag);
     if (!b64ct || !b64t) {
-        util_log(ERROR, "Failed to convert raw bytes to base64!");
+        util_log(LOG_ERROR, "Failed to convert raw bytes to base64!");
         return -6;
     }
 
@@ -2097,19 +2098,19 @@ static int run_decrypt(char *b64, char *hex, char *file, char *binfile, char *ke
     if (b64) {
         ciphertext = g_base64_decode(b64, &ciphertext_len);
         if (!ciphertext) {
-            util_log(ERROR, "Failed to decode base64 to decrypt!");
+            util_log(LOG_ERROR, "Failed to decode base64 to decrypt!");
             return -1;
         }
     } else if (hex) {
         ciphertext = hex_to_raw(hex, (int *)&ciphertext_len);
         if (!ciphertext) {
-            util_log(ERROR, "Failed to convert hex to raw bytes!");
+            util_log(LOG_ERROR, "Failed to convert hex to raw bytes!");
             return -1;
         }
     } else if (file) {
         FILE *fp = fopen(file, "rb");
         if (!fp) {
-            util_log(ERROR, "Invalid input file path/permissions!");
+            util_log(LOG_ERROR, "Invalid input file path/permissions!");
             return -7;
         }
 
@@ -2118,7 +2119,7 @@ static int run_decrypt(char *b64, char *hex, char *file, char *binfile, char *ke
         fseek(fp, 0, SEEK_SET);
 
         if (!fsize) {
-            util_log(ERROR, "Input file has no data!");
+            util_log(LOG_ERROR, "Input file has no data!");
             return -8;
         }
 
@@ -2132,14 +2133,14 @@ static int run_decrypt(char *b64, char *hex, char *file, char *binfile, char *ke
         if (!ciphertext || ciphertext_len <= 0) {
             ciphertext = g_base64_decode((char *)tmp_buf, &ciphertext_len);
             if (!ciphertext) {
-                util_log(ERROR, "Failed to retrieve data from file as hex or base64!");
+                util_log(LOG_ERROR, "Failed to retrieve data from file as hex or base64!");
                 return -9;
             }
         }
     } else if (binfile) {
         FILE *fp = fopen(binfile, "rb");
         if (!fp) {
-            util_log(ERROR, "Invalid input file path/permissions!");
+            util_log(LOG_ERROR, "Invalid input file path/permissions!");
             return -7;
         }
 
@@ -2148,7 +2149,7 @@ static int run_decrypt(char *b64, char *hex, char *file, char *binfile, char *ke
         fseek(fp, 0, SEEK_SET);
 
         if (!ciphertext_len) {
-            util_log(ERROR, "Input file has no ciphertext!");
+            util_log(LOG_ERROR, "Input file has no ciphertext!");
             return -8;
         }
 
@@ -2158,7 +2159,7 @@ static int run_decrypt(char *b64, char *hex, char *file, char *binfile, char *ke
     }
 
     if (!ciphertext) {
-        util_log(ERROR, "No ciphertext found to decrypt! (bug)");
+        util_log(LOG_ERROR, "No ciphertext found to decrypt! (bug)");
         return -2;
     }
 
@@ -2170,13 +2171,13 @@ static int run_decrypt(char *b64, char *hex, char *file, char *binfile, char *ke
     uint8_t *raw_tag   = g_base64_decode(tag, &raw_tag_len);
 
     if (!raw_key || !raw_nonce || !raw_tag) {
-        util_log(ERROR, "Failed to decode base64 key/nonce/tag!");
+        util_log(LOG_ERROR, "Failed to decode base64 key/nonce/tag!");
         free(ciphertext);
         return -3;
     }
 
     if (raw_key_len != 32 || raw_nonce_len != NONCE_LEN || raw_tag_len != TAG_LEN) {
-        util_log(ERROR, "Invalid length for base64 key/nonce/tag!");
+        util_log(LOG_ERROR, "Invalid length for base64 key/nonce/tag!");
         free(ciphertext);
         return -4;
     }
@@ -2185,7 +2186,7 @@ static int run_decrypt(char *b64, char *hex, char *file, char *binfile, char *ke
     int plaintext_len  = aes_gcm_decrypt(ciphertext, ciphertext_len, raw_key, raw_nonce, NONCE_LEN, raw_tag, plaintext);
 
     if (plaintext_len <= 0) {
-        util_log(ERROR, "Failed to decrypt ciphertext! (decryption returned length <= 0)");
+        util_log(LOG_ERROR, "Failed to decrypt ciphertext! (decryption returned length <= 0)");
         return -5;
     }
 
@@ -2248,7 +2249,7 @@ static int run_help(char *cmd) {
                     break;
 
                 default:
-                    util_log(FATAL, "Invalid arg type in run_help (bug)");
+                    util_log(LOG_FATAL, "Invalid arg type in run_help (bug)");
                     return -1;
                 }
             }
@@ -2297,7 +2298,7 @@ static int run_help(char *cmd) {
     }
 
     if (!target_cmd) {
-        util_log(ERROR, "Failed to show command-specific help: unrecognized name");
+        util_log(LOG_ERROR, "Failed to show command-specific help: unrecognized name");
         return -2;
     }
 
@@ -2333,7 +2334,7 @@ static int run_help(char *cmd) {
             break;
 
         default:
-            util_log(FATAL, "Invalid arg type in run_help (bug)");
+            util_log(LOG_FATAL, "Invalid arg type in run_help (bug)");
             return -1;
         }
     }
@@ -2463,7 +2464,7 @@ static int handle_cmd(Command *cmd) {
         return run_help((char *)cmd->args[0].value);
 
     default:
-        util_log(ERROR, "Invalid command id passed to handle_cmd!");
+        util_log(LOG_ERROR, "Invalid command id passed to handle_cmd!");
         return -1;
     }
 }
@@ -2520,7 +2521,7 @@ static Command *parse_cmd(char *cmd_buf) {
                     break;
 
                 default:
-                    util_log(ERROR, "Failed to parse command: invalid escape sequence");
+                    util_log(LOG_ERROR, "Failed to parse command: invalid escape sequence");
                     return NULL;
                 }
 
@@ -2550,7 +2551,7 @@ static Command *parse_cmd(char *cmd_buf) {
     }
 
     if (quote_open) {
-        util_log(ERROR, "Failed to parse command: unclosed quote");
+        util_log(LOG_ERROR, "Failed to parse command: unclosed quote");
         return NULL;
     }
 
@@ -2562,7 +2563,7 @@ static Command *parse_cmd(char *cmd_buf) {
     }
 
     if (!words[0]) {
-        util_log(ERROR, "No command found in token buffer (bug)");
+        util_log(LOG_ERROR, "No command found in token buffer (bug)");
         return NULL;
     }
 
@@ -2622,7 +2623,7 @@ static Command *parse_cmd(char *cmd_buf) {
             }
 
             if (!is_known) { // could be base64, so don't warn
-                util_log(DEBUG, "Skipping unknown key '%s'", key);
+                util_log(LOG_DEBUG, "Skipping unknown key '%s'", key);
                 free(key);
             } else {
                 char *val = strdup(tok + sep + 1);
@@ -2658,7 +2659,7 @@ static Command *parse_cmd(char *cmd_buf) {
             }
 
             if (!matched) {
-                util_log(ERROR, "Unknown flag '%s' for command '%s'", tok, target_cmd->name);
+                util_log(LOG_ERROR, "Unknown flag '%s' for command '%s'", tok, target_cmd->name);
                 goto invalid_args;
             }
 
@@ -2689,7 +2690,7 @@ static Command *parse_cmd(char *cmd_buf) {
         }
 
         if (!posarg) {
-            util_log(ERROR, "Too many positional arguments");
+            util_log(LOG_ERROR, "Too many positional arguments");
             goto invalid_args;
         }
 
@@ -2715,13 +2716,13 @@ static Command *parse_cmd(char *cmd_buf) {
 
     for (int g = 1; g <= max_group; g++) {
         if (used[g] == 0) {
-            util_log(ERROR, "Missing required argument from exclusion group %d", g);
+            util_log(LOG_ERROR, "Missing required argument from exclusion group %d", g);
             free(used);
             goto invalid_args;
         }
 
         if (used[g] > 1) {
-            util_log(ERROR, "Multiple arguments provided from exclusion group %d", g);
+            util_log(LOG_ERROR, "Multiple arguments provided from exclusion group %d", g);
             free(used);
             goto invalid_args;
         }
@@ -2749,7 +2750,7 @@ int cli_run_shell() {
             break;
 
         if (strlen(cmd_buf) > 2000) {
-            util_log(WARN, "Input over 2000 characters long; ignoring");
+            util_log(LOG_WARN, "Input over 2000 characters long; ignoring");
             continue;
         }
 
@@ -2760,7 +2761,7 @@ int cli_run_shell() {
         linenoiseHistorySave(histfile);
 
         if (!strcmp(cmd_buf, "exit")) {
-            util_log(INFO, "exit command called; exiting...");
+            util_log(LOG_INFO, "exit command called; exiting...");
             break;
         }
 
@@ -2796,14 +2797,14 @@ static void register_help_info(char *cmd_name, char *help_msg) {
     for (int i = 0; i < num_cmds; i++)
         if (!strcmp(commands[i].name, cmd_name)) {
             if (commands[i].help_msg) {
-                util_log(ERROR, "Command %s already has help info registered! (bug)", commands[i].name);
+                util_log(LOG_ERROR, "Command %s already has help info registered! (bug)", commands[i].name);
                 return;
             }
             commands[i].help_msg = strdup(help_msg);
             return;
         }
 
-    util_log(ERROR, "Failed to fetch command to register help message!");
+    util_log(LOG_ERROR, "Failed to fetch command to register help message!");
 }
 
 static void register_arg(char *cmd_name, char *arg_name, ArgumentType arg_type, int excl_group) {
@@ -2839,7 +2840,7 @@ static void register_alias(char *cmd_name, char *alias) {
     Command *cmd = NULL;
     for (int i = 0; i < num_cmds; i++) {
         if (!strcmp(commands[i].name, alias)) {
-            util_log(FATAL, "Invalid command alias registered! (duplicate of existing command)");
+            util_log(LOG_FATAL, "Invalid command alias registered! (duplicate of existing command)");
             return;
         }
 
@@ -2848,14 +2849,14 @@ static void register_alias(char *cmd_name, char *alias) {
 
         for (int j = 0; j < commands[i].num_aliases; j++) {
             if (!strcmp(commands[i].aliases[j], alias)) {
-                util_log(FATAL, "Invalid command alias registered! (duplicate of existing alias)");
+                util_log(LOG_FATAL, "Invalid command alias registered! (duplicate of existing alias)");
                 return;
             }
         }
     }
 
     if (!cmd) {
-        util_log(FATAL, "Failed to fetch command to add alias (bug)");
+        util_log(LOG_FATAL, "Failed to fetch command to add alias (bug)");
         return;
     }
 
@@ -2872,7 +2873,7 @@ static void register_cmd(char *name) {
 
     for (int i = 0; i < num_cmds; i++)
         if (!strcmp(commands[i].name, name)) {
-            util_log(FATAL, "Duplicate command registered! (bug)");
+            util_log(LOG_FATAL, "Duplicate command registered! (bug)");
             return;
         }
 
@@ -3095,14 +3096,14 @@ bool cli_init() {
 
         FILE *fp = fopen(histfile, "a");
         if (!fp) {
-            util_log(ERROR, "Failed to open/create history file!");
+            util_log(LOG_ERROR, "Failed to open/create history file!");
             return false;
         }
         fclose(fp);
 
         linenoiseHistorySetMaxLen(250);
         if (linenoiseHistoryLoad(histfile)) {
-            util_log(FATAL, "Failed to load command history file!");
+            util_log(LOG_FATAL, "Failed to load command history file!");
             return false;
         }
     }
@@ -3116,7 +3117,7 @@ bool cli_init() {
     GBytes *bytes =
         g_resources_lookup_data("/com/samuelf09/passwdmngr/commands.json", G_RESOURCE_LOOKUP_FLAGS_NONE, &error);
     if (!bytes) {
-        util_log(ERROR, "Failed to load commands.json: %s", error->message);
+        util_log(LOG_ERROR, "Failed to load commands.json: %s", error->message);
         g_clear_error(&error);
         return false;
     }
@@ -3127,7 +3128,7 @@ bool cli_init() {
 
     JsonParser *parser = json_parser_new();
     if (!json_parser_load_from_data(parser, data, size, &error)) {
-        util_log(ERROR, "Failed to parse commands.json: %s", error->message);
+        util_log(LOG_ERROR, "Failed to parse commands.json: %s", error->message);
         g_clear_error(&error);
         g_object_unref(parser);
         g_bytes_unref(bytes);
@@ -3172,7 +3173,7 @@ bool cli_init() {
             else if (!strcmp(type_str, "KEYVAL"))
                 type = KEYVAL;
             else {
-                util_log(WARN, "Unknown arg type '%s' for command '%s'", type_str, name);
+                util_log(LOG_WARN, "Unknown arg type '%s' for command '%s'", type_str, name);
                 continue;
             }
 
@@ -3188,7 +3189,7 @@ bool cli_init() {
         char *help_text = load_help_file(name);
 
         if (!help_text) {
-            util_log(WARN, "No help file for command '%s'", name);
+            util_log(LOG_WARN, "No help file for command '%s'", name);
         } else {
             register_help_info((char *)name, strdup(help_text));
             g_free(help_text);

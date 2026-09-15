@@ -14,24 +14,24 @@ GtkWindow      *root_window = NULL;
 
 static bool app_init() {
 
-    util_log(INFO, "Started passwdmngr app");
-    util_log(DEBUG, "Debug messages are enabled");
+    util_log(LOG_INFO, "Started passwdmngr app");
+    util_log(LOG_DEBUG, "Debug messages are enabled");
 
     if (sodium_init() < 0) {
-        util_log(FATAL, "Failed to initialize libsodium");
+        util_log(LOG_FATAL, "Failed to initialize libsodium");
         return false;
     }
 
     // Verify app files are present
     char *root = util_get_app_dir();
     if (!root) {
-        util_log(FATAL, "Could not determine app data directory.");
+        util_log(LOG_FATAL, "Could not determine app data directory.");
         return false;
     }
 
     if (!dir_exists(root)) {
         g_mkdir_with_parents(root, 0755);
-        util_log(DEBUG, "App dir does not exist; creating it (first install or data wipe)");
+        util_log(LOG_DEBUG, "App dir does not exist; creating it (first install or data wipe)");
     }
 
     char *user_vaults_dir = ec_malloc(strlen(root) + strlen("vaults") + 1);
@@ -51,7 +51,7 @@ static bool app_init() {
     // If accounts.bin does not exist, write empty header
     if (!file_exists || length == 0)
         if (!init_accounts()) {
-            util_log(ERROR, "Failed to initialize accounts.bin");
+            util_log(LOG_ERROR, "Failed to initialize accounts.bin");
             free(accounts_path);
             free(pref_path);
             free(user_vaults_dir);
@@ -76,7 +76,7 @@ static bool app_init() {
 
     // Load accounts.bin
     if (!load_accounts()) {
-        util_log(FATAL, "Failed to load account data from accounts.bin; check log for more information");
+        util_log(LOG_FATAL, "Failed to load account data from accounts.bin; check log for more information");
         return false;
     }
 
@@ -85,7 +85,8 @@ static bool app_init() {
 
 static void on_activate(GtkApplication *app) {
 
-    util_log(DEBUG, "Runtime gtk v%d.%d.%d", gtk_get_major_version(), gtk_get_minor_version(), gtk_get_micro_version());
+    util_log(LOG_DEBUG, "Runtime gtk v%d.%d.%d", gtk_get_major_version(), gtk_get_minor_version(),
+             gtk_get_micro_version());
 
     passwdmngr = app;
 
@@ -106,7 +107,7 @@ static void on_activate(GtkApplication *app) {
     gtk_window_set_child(GTK_WINDOW(root_window), GTK_WIDGET(login_win));
 
     if (!app_init()) {
-        util_log(FATAL, "app_init failed");
+        util_log(LOG_FATAL, "app_init failed");
         g_application_quit(G_APPLICATION(passwdmngr));
     }
 
@@ -137,7 +138,7 @@ static void on_shutdown(GApplication *app, gpointer user_data) {
     if (accounts)
         free(accounts);
 
-    util_log(INFO, "App shut down (cleanup successful)");
+    util_log(LOG_INFO, "App shut down (cleanup successful)");
 }
 
 static int run_cli(int argc, char **argv) {
@@ -148,14 +149,14 @@ static int run_cli(int argc, char **argv) {
     mode = CLI;
 
     if (!app_init()) {
-        util_log(FATAL, "app init failed");
+        util_log(LOG_FATAL, "app init failed");
         exit(-1);
     }
 
-    util_log(INFO, "passwdmngr started in cli mode");
+    util_log(LOG_INFO, "passwdmngr started in cli mode");
 
     if (!cli_init()) {
-        util_log(FATAL, "cli init failed");
+        util_log(LOG_FATAL, "cli init failed");
         exit(-2);
     }
 
@@ -170,11 +171,11 @@ int main(int argc, char **argv) {
     if (argc > 1) {
         if (!strcmp(argv[1], "--cli")) {
             for (int i = 2; i < argc; i++)
-                util_log(WARN, "Ignoring unrecognized argument '%s'", argv[i]);
+                util_log(LOG_WARN, "Ignoring unrecognized argument '%s'", argv[i]);
             return run_cli(argc, argv); // Run in cli mode
         } else {
             for (int i = 1; i < argc; i++)
-                util_log(WARN, "Ignoring unrecognized argument '%s'", argv[i]);
+                util_log(LOG_WARN, "Ignoring unrecognized argument '%s'", argv[i]);
         }
     }
 

@@ -22,7 +22,7 @@ extern const char PATH_SEPARATOR;
 
 enum ErrorType { WARN_D, NONFATAL_D, FATAL_D };
 
-enum LogLevel { DEBUG, INFO, WARN, ERROR, FATAL };
+enum LogLevel { LOG_DEBUG, LOG_INFO, LOG_WARN, LOG_ERROR, LOG_FATAL };
 
 typedef enum ErrorType ErrorType;
 typedef enum LogLevel  LogLevel;
@@ -61,10 +61,10 @@ static inline void ec_fread(void *__restrict__ __ptr, size_t __size, size_t __n,
     size_t n = fread(__ptr, __size, __n, __stream);
     if (n < (size_t)__n) {
         if (ferror(__stream))
-            util_log(ERROR, "fread returned short: read error");
+            util_log(LOG_ERROR, "fread returned short: read error");
         else if (feof(__stream))
-            util_log(DEBUG, "fread returned short: EOF");
+            util_log(LOG_DEBUG, "fread returned short: EOF");
         else
-            util_log(DEBUG, "fread returned short: unknown cause");
+            util_log(LOG_DEBUG, "fread returned short: unknown cause");
     }
 }

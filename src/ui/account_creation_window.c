@@ -35,7 +35,7 @@ static void on_create_account_clicked(GtkButton *button, AccountCreationWindow *
             register_actions(mainwin);
             gtk_window_set_child(GTK_WINDOW(root_window), GTK_WIDGET(mainwin));
 
-            util_log(INFO, "New user %s: login successful", uname);
+            util_log(LOG_INFO, "New user %s: login successful", uname);
 
             free(uname);
             free(passwd);

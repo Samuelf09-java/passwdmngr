@@ -353,7 +353,7 @@ static void on_add_entry_clicked(GtkButton *button, MainWindow *self) {
     edit_box->entry_id  = storage_get_next_id();
     char *new_pass      = gen_passwd(24, "!@#$%^&*()-_=+[]{};:,.<>?/", true, true, true);
     if (!new_pass) {
-        util_log(ERROR, "gen_passwd failed!");
+        util_log(LOG_ERROR, "gen_passwd failed!");
         return;
     }
     gtk_editable_set_text(GTK_EDITABLE(edit_box->password_entry), new_pass);
@@ -376,7 +376,7 @@ static void on_clearlog_response(GObject *source, GAsyncResult *result, gpointer
     FILE *fp = fopen(util_get_logfile(), "w");
     if (fp) {
         fclose(fp);
-        util_log(INFO, "Logfile cleared");
+        util_log(LOG_INFO, "Logfile cleared");
         return;
     }
 
@@ -416,7 +416,7 @@ static void on_deselect_all_choose_entry_clicked(GtkButton *button, gpointer use
 static void on_cancel_choose_entry_exp_clicked(GtkButton *button, gpointer user_data) {
     X(button);
 
-    util_log(DEBUG, "Export canceled");
+    util_log(LOG_DEBUG, "Export canceled");
     gtk_window_destroy(GTK_WINDOW(((ChooseEntriesDialogData *)user_data)->dialog));
     g_free(user_data);
 }
@@ -425,7 +425,7 @@ static void on_export_file_response(GObject *dialog, GAsyncResult *result, gpoin
 
     GFile *file = gtk_file_dialog_save_finish(GTK_FILE_DIALOG(dialog), result, NULL);
     if (!file) { // canceled
-        util_log(DEBUG, "Export canceled");
+        util_log(LOG_DEBUG, "Export canceled");
         g_free(user_data);
         return;
     }
@@ -462,7 +462,7 @@ static void on_export_file_response(GObject *dialog, GAsyncResult *result, gpoin
 
     storage_write_vault(path, export_entries, data->num_ids, salt);
 
-    util_log(INFO, "Exported %d entries to %s", data->num_ids, path);
+    util_log(LOG_INFO, "Exported %d entries to %s", data->num_ids, path);
 
     wipe_passwd_entries(export_entries, data->num_ids);
     free(salt);
@@ -487,11 +487,11 @@ static void on_confirm_choose_entry_exp_clicked(GtkButton *button, gpointer user
 
         if (gtk_check_button_get_active(check)) {
             int *id_ptr = g_object_get_data(G_OBJECT(check), "entry-id");
-            util_log(DEBUG, "Adding entry with id '%d' to export data", *id_ptr);
+            util_log(LOG_DEBUG, "Adding entry with id '%d' to export data", *id_ptr);
             if (id_ptr)
                 ids[index++] = *id_ptr;
             else
-                util_log(ERROR, "Failed to fetch id from checkbutton");
+                util_log(LOG_ERROR, "Failed to fetch id from checkbutton");
         }
 
         row = GTK_LIST_BOX_ROW(gtk_widget_get_next_sibling(GTK_WIDGET(row)));
@@ -532,7 +532,7 @@ static void on_cancel_import_mode_clicked(GtkButton *button, gpointer user_data)
 
     ImportModeDialogData *data = (ImportModeDialogData *)user_data;
 
-    util_log(DEBUG, "Import canceled");
+    util_log(LOG_DEBUG, "Import canceled");
     gtk_window_destroy(GTK_WINDOW(data->dialog));
     if (data->import_entries)
         wipe_passwd_entries(data->import_entries, data->num_import_entries);
@@ -544,7 +544,7 @@ static void on_cancel_rename_entry_clicked(GtkButton *button, gpointer user_data
 
     RenameEntryDialogData *data = (RenameEntryDialogData *)user_data;
 
-    util_log(DEBUG, "Rename dupe entry canceled");
+    util_log(LOG_DEBUG, "Rename dupe entry canceled");
     gtk_window_destroy(GTK_WINDOW(data->dialog));
 
     GtkAlertDialog *dialog =
@@ -610,14 +610,14 @@ static void on_dupe_import_choice(GObject *source, GAsyncResult *result, gpointe
 
         switch (response) {
         case 0: // Keep
-            util_log(DEBUG, "Keeping existing entry for '%s'", entry->service);
+            util_log(LOG_DEBUG, "Keeping existing entry for '%s'", entry->service);
             context->current_index++;
             break;
 
         case 1: // Overwrite
             entry->id = context->dupe_id;
             update_entry(context->dupe_id, entry);
-            util_log(DEBUG, "Overwrote entry '%s'", entry->service);
+            util_log(LOG_DEBUG, "Overwrote entry '%s'", entry->service);
             context->current_index++;
             break;
 
@@ -680,7 +680,7 @@ static void on_dupe_import_choice(GObject *source, GAsyncResult *result, gpointe
             return;
         } else {
             add_entry(&(context->mode_data->import_entries[i]));
-            util_log(DEBUG, "Added entry '%s' from imported file", context->mode_data->import_entries[i].service);
+            util_log(LOG_DEBUG, "Added entry '%s' from imported file", context->mode_data->import_entries[i].service);
         }
     }
 
@@ -691,7 +691,7 @@ static void on_dupe_import_choice(GObject *source, GAsyncResult *result, gpointe
     free(context);
 
     reload_sidebar();
-    util_log(INFO, "Import complete");
+    util_log(LOG_INFO, "Import complete");
 }
 
 static void on_confirm_import_mode_clicked(GtkButton *button, gpointer user_data) {
@@ -743,7 +743,7 @@ static void on_confirm_import_mode_clicked(GtkButton *button, gpointer user_data
 
         storage_write_vault(backup_path, entries, num_entries, salt);
 
-        util_log(INFO, "Exported %d entries to backup file %s", num_entries, backup_path);
+        util_log(LOG_INFO, "Exported %d entries to backup file %s", num_entries, backup_path);
 
         free(backup_path);
         wipe_passwd_entries(entries, num_entries);
@@ -753,7 +753,7 @@ static void on_confirm_import_mode_clicked(GtkButton *button, gpointer user_data
         num_entries = data->num_import_entries;
         storage_write_user_vault();
 
-        util_log(INFO, "Import complete: %d entries imported", data->num_import_entries);
+        util_log(LOG_INFO, "Import complete: %d entries imported", data->num_import_entries);
         gtk_window_destroy(GTK_WINDOW(data->dialog));
         g_free(data);
         reload_sidebar();
@@ -780,7 +780,7 @@ static void on_confirm_import_mode_clicked(GtkButton *button, gpointer user_data
                 if (mode == OVERWRITE) {
                     data->import_entries[i].id = dupe_id;
                     update_entry(dupe_id, &(data->import_entries[i]));
-                    util_log(DEBUG, "Overwrote entry '%s' with version from imported file",
+                    util_log(LOG_DEBUG, "Overwrote entry '%s' with version from imported file",
                              data->import_entries[i].service);
                 } else {
                     /*
@@ -811,7 +811,7 @@ static void on_confirm_import_mode_clicked(GtkButton *button, gpointer user_data
                 data->import_entries[i].id = storage_get_next_id();
                 add_entry(&(data->import_entries[i]));
                 reload_sidebar();
-                util_log(DEBUG, "Added entry '%s' from imported file", data->import_entries[i].service);
+                util_log(LOG_DEBUG, "Added entry '%s' from imported file", data->import_entries[i].service);
             }
         }
 
@@ -828,7 +828,7 @@ static void on_confirm_import_mode_clicked(GtkButton *button, gpointer user_data
 
     reload_sidebar();
     gtk_window_destroy(GTK_WINDOW(data->dialog));
-    util_log(INFO, "Import complete: %d entries imported", data->num_import_entries);
+    util_log(LOG_INFO, "Import complete: %d entries imported", data->num_import_entries);
     if (data->import_entries)
         wipe_passwd_entries(data->import_entries, data->num_import_entries);
     g_free(data);
@@ -839,7 +839,7 @@ static void on_cancel_choose_entry_imp_clicked(GtkButton *button, gpointer user_
 
     ChooseEntriesDialogData *data = (ChooseEntriesDialogData *)user_data;
 
-    util_log(DEBUG, "Import canceled");
+    util_log(LOG_DEBUG, "Import canceled");
     gtk_window_destroy(GTK_WINDOW(data->dialog));
     if (data->import_entries)
         wipe_passwd_entries(data->import_entries, data->num_import_entries);
@@ -863,11 +863,11 @@ static void on_confirm_choose_entry_imp_clicked(GtkButton *button, gpointer user
 
         if (gtk_check_button_get_active(check)) {
             int *id_ptr = g_object_get_data(G_OBJECT(check), "entry-id");
-            util_log(DEBUG, "Adding entry with id '%d' to import data", *id_ptr);
+            util_log(LOG_DEBUG, "Adding entry with id '%d' to import data", *id_ptr);
             if (id_ptr)
                 ids[index++] = *id_ptr;
             else
-                util_log(ERROR, "Failed to fetch id from checkbutton");
+                util_log(LOG_ERROR, "Failed to fetch id from checkbutton");
         }
 
         row = GTK_LIST_BOX_ROW(gtk_widget_get_next_sibling(GTK_WIDGET(row)));
@@ -981,7 +981,7 @@ static void do_import_with_decrypted_data(PasswdEntry *import_entries, int num_i
 static void on_cancel_importpasswd_clicked(GtkButton *button, gpointer user_data) {
     X(button);
 
-    util_log(DEBUG, "Import canceled (no password entered)");
+    util_log(LOG_DEBUG, "Import canceled (no password entered)");
     ImportPasswdDialogData *data = (ImportPasswdDialogData *)user_data;
     gtk_window_destroy(GTK_WINDOW(data->dialog));
     free(data->header);
@@ -1036,7 +1036,7 @@ static void on_file_import_response(GObject *dialog, GAsyncResult *result, gpoin
 
     GFile *file = gtk_file_dialog_open_finish(GTK_FILE_DIALOG(dialog), result, NULL);
     if (!file) {
-        util_log(INFO, "Import canceled: no file selected");
+        util_log(LOG_INFO, "Import canceled: no file selected");
         return;
     }
 
@@ -1048,8 +1048,8 @@ static void on_file_import_response(GObject *dialog, GAsyncResult *result, gpoin
     int num_import_entries = storage_read_vault(path, &import_entries, &hdr);
 
     if (num_import_entries < 0) {
-        util_log(WARN, "Failed to decrypt imported entries with current user's information; trying again with "
-                       "user-defined key info");
+        util_log(LOG_WARN, "Failed to decrypt imported entries with current user's information; trying again with "
+                           "user-defined key info");
 
         // retrieve password for second key attempt
         GtkBuilder *builder = gtk_builder_new_from_resource("/com/samuelf09/passwdmngr/importpasswd_dialog.ui");
@@ -1084,7 +1084,7 @@ static void on_file_import_response(GObject *dialog, GAsyncResult *result, gpoin
 static void on_cancel_changepasswd_clicked(GtkButton *button, gpointer user_data) {
     X(button);
 
-    util_log(DEBUG, "Password change canceled");
+    util_log(LOG_DEBUG, "Password change canceled");
     gtk_window_destroy(GTK_WINDOW(((ChangePasswdDialogData *)user_data)->dialog));
     g_free(user_data);
 }
@@ -1126,13 +1126,13 @@ static void on_confirm_changepasswd_clicked(GtkButton *button, gpointer user_dat
         return;
     }
 
-    util_log(INFO, "Successfully changed password");
+    util_log(LOG_INFO, "Successfully changed password");
 }
 
 static void on_cancel_deleteacc_clicked(GtkButton *button, gpointer user_data) {
     X(button);
 
-    util_log(DEBUG, "Account deletion canceled (stage two)");
+    util_log(LOG_DEBUG, "Account deletion canceled (stage two)");
     gtk_window_destroy(GTK_WINDOW(((DeleteAccDialogData *)user_data)->dialog));
     g_free(user_data);
 }
@@ -1155,7 +1155,7 @@ static void on_confirm_deleteacc_clicked(GtkButton *button, gpointer user_data) 
 
     if (verify_account(conf_username, conf_password)) {
 
-        util_log(DEBUG, "Manually triggering user logout");
+        util_log(LOG_DEBUG, "Manually triggering user logout");
         logout_cb(NULL, NULL, MAIN_WINDOW(gtk_window_get_child(root_window)));
 
         if (!storage_delete_account((char *)conf_username)) {
@@ -1163,7 +1163,7 @@ static void on_confirm_deleteacc_clicked(GtkButton *button, gpointer user_data) 
             return;
         }
 
-        util_log(INFO, "Deleted account with username '%s'", conf_username);
+        util_log(LOG_INFO, "Deleted account with username '%s'", conf_username);
 
     } else
         util_nonfatal_d("Failed to delete account: invalid login information");
@@ -1177,7 +1177,7 @@ static void on_deleteacc_confirm_response(GObject *source, GAsyncResult *result,
     g_object_unref(dialog1);
 
     if (response != 1) { // cancel
-        util_log(DEBUG, "Delete account canceled");
+        util_log(LOG_DEBUG, "Delete account canceled");
         return;
     }
 
@@ -1206,7 +1206,7 @@ static void export_cb(GSimpleAction *action, GVariant *parameter, gpointer user_
     X(action);
     X(parameter);
     X(user_data);
-    util_log(DEBUG, "Export triggered");
+    util_log(LOG_DEBUG, "Export triggered");
 
     GtkBuilder *builder = gtk_builder_new_from_resource("/com/samuelf09/passwdmngr/choose_entries_dialog.ui");
 
@@ -1249,7 +1249,7 @@ static void import_cb(GSimpleAction *action, GVariant *parameter, gpointer user_
     X(action);
     X(parameter);
     X(user_data);
-    util_log(DEBUG, "Import triggered");
+    util_log(LOG_DEBUG, "Import triggered");
 
     GtkFileFilter *filter = gtk_file_filter_new();
     gtk_file_filter_set_name(filter, "Password Manager User Data (*.pwmngr)");
@@ -1268,7 +1268,7 @@ static void openlog_cb(GSimpleAction *action, GVariant *parameter, gpointer user
     X(action);
     X(parameter);
     X(user_data);
-    util_log(DEBUG, "Open log triggered");
+    util_log(LOG_DEBUG, "Open log triggered");
 
     GError *err = NULL;
     char   *uri = g_filename_to_uri(util_get_logfile(), NULL, &err);
@@ -1289,7 +1289,7 @@ static void openlog_cb(GSimpleAction *action, GVariant *parameter, gpointer user
         return;
     }
 
-    util_log(INFO, "Opened passwdmngr.log in default text editor");
+    util_log(LOG_INFO, "Opened passwdmngr.log in default text editor");
 
     g_free(uri);
 }
@@ -1298,7 +1298,7 @@ static void clearlog_cb(GSimpleAction *action, GVariant *parameter, gpointer use
     X(action);
     X(parameter);
     X(user_data);
-    util_log(DEBUG, "Clear log triggered");
+    util_log(LOG_DEBUG, "Clear log triggered");
     GtkAlertDialog *dialog = gtk_alert_dialog_new("Are you sure you want to clear the log file?\n"
                                                   "This operation is permanent and cannot be undone.");
 
@@ -1311,9 +1311,9 @@ static void clearlog_cb(GSimpleAction *action, GVariant *parameter, gpointer use
 static void logout_cb(GSimpleAction *action, GVariant *parameter, gpointer user_data) {
     X(action);
     X(parameter);
-    util_log(DEBUG, "Logout triggered");
+    util_log(LOG_DEBUG, "Logout triggered");
 
-    util_log(INFO, "Logging out user %s", username);
+    util_log(LOG_INFO, "Logging out user %s", username);
 
     MainWindow *self = MAIN_WINDOW(user_data);
 
@@ -1344,7 +1344,7 @@ static void logout_cb(GSimpleAction *action, GVariant *parameter, gpointer user_
         curr_prefs = NULL;
     }
 
-    util_log(DEBUG, "Cleared all user-specific globals from storage.c");
+    util_log(LOG_DEBUG, "Cleared all user-specific globals from storage.c");
 
     // Unregister actions
     g_action_map_remove_action(G_ACTION_MAP(passwdmngr), "logout");
@@ -1363,19 +1363,19 @@ static void logout_cb(GSimpleAction *action, GVariant *parameter, gpointer user_
     g_signal_handlers_disconnect_by_func(self->content_area, on_edit_save, self);
     g_signal_handlers_disconnect_by_func(self->content_area, on_edit_cancel, self);
 
-    util_log(DEBUG, "Disconnected signal handlers");
+    util_log(LOG_DEBUG, "Disconnected signal handlers");
 
     LoginWindow *loginwin = g_object_new(LOGIN_WINDOW_TYPE, NULL);
     gtk_window_set_child(GTK_WINDOW(root_window), GTK_WIDGET(loginwin));
 
-    util_log(DEBUG, "Successfully reset to login_window view");
+    util_log(LOG_DEBUG, "Successfully reset to login_window view");
 }
 
 static void changepasswd_cb(GSimpleAction *action, GVariant *parameter, gpointer user_data) {
     X(action);
     X(parameter);
     X(user_data);
-    util_log(DEBUG, "Change password triggered");
+    util_log(LOG_DEBUG, "Change password triggered");
 
     GtkBuilder *builder = gtk_builder_new_from_resource("/com/samuelf09/passwdmngr/changepasswd_dialog.ui");
 
@@ -1404,7 +1404,7 @@ static void deleteacc_cb(GSimpleAction *action, GVariant *parameter, gpointer us
     X(action);
     X(parameter);
     X(user_data);
-    util_log(DEBUG, "Delete account triggered");
+    util_log(LOG_DEBUG, "Delete account triggered");
 
     GtkAlertDialog *dialog = gtk_alert_dialog_new("Are you sure you want to delete your account?\n"
                                                   "This operation is permanent and cannot be undone.");
@@ -1463,7 +1463,7 @@ static void main_window_init(MainWindow *self) {
 
     char *title = ec_malloc(strlen("Password Manager - ") + strlen(username) + 1);
     if (!title)
-        util_log(ERROR, "Window title malloc failed");
+        util_log(LOG_ERROR, "Window title malloc failed");
     sprintf(title, "Password Manager - %s", username);
     gtk_window_set_title(GTK_WINDOW(root_window), title);
     free(title);
