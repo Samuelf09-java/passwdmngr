@@ -229,6 +229,7 @@ jobs:
           update: true
           msystem: MINGW64
           install: >-
+            jq
             make
             pkgconf
             mingw-w64-x86_64-cmake
@@ -246,7 +247,6 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: msys2 {0}
         run: |
-          pacman -S jq 
           make clean
           make
           mkdir -p dist/

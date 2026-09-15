@@ -17,7 +17,7 @@ UI += $(shell find resources/ui -name '*.ui')
 LINENOISE_DIR := external/linenoise-ng
 LINENOISE_BUILD := $(LINENOISE_DIR)/build
 ifeq ($(OS),Windows_NT)
-	LINENOISE_LIB := $(LINENOISE_BUILD)/linenoise-ng.lib
+	LINENOISE_LIB := $(LINENOISE_BUILD)/liblinenoise.dll.a
 else
 	LINENOISE_LIB := $(LINENOISE_BUILD)/liblinenoise.a
 endif
