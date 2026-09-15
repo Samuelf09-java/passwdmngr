@@ -65,7 +65,7 @@ $(LINENOISE_OUT_LIB):
 		echo "Building linenoise-ng..."; \
 		rm -rf $(LINENOISE_BUILD); \
 		mkdir -p $(LINENOISE_BUILD); \
-		cd $(LINENOISE_BUILD) && cmake .. && cmake --build .; \
+		cd $(LINENOISE_BUILD) && cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 .. && cmake --build .; \
 		cd ../../..; \
 		mkdir -p $(LINENOISE_OUT); \
 		cp $(LINENOISE_BUILD)/lib*.a $(LINENOISE_OUT_LIB); \
