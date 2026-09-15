@@ -3055,21 +3055,23 @@ static void completion_cb(const char *token, const char *full, linenoiseCompleti
                     ent->d_name);
 
             bool is_dir = false;
+#ifdef _WIN32
+            char fullpath[PATH_MAX];
+            snprintf(fullpath, sizeof(fullpath), "%s\\%s", dir_path, ent->d_name);
+            struct _stat st;
+            if (_stat(fullpath, &st) == 0 && (st.st_mode & _S_IFDIR))
+                is_dir = true;
+#else
             if (ent->d_type == DT_DIR) {
                 is_dir = true;
             } else if (ent->d_type == DT_UNKNOWN) {
                 char fullpath[PATH_MAX];
                 snprintf(fullpath, sizeof(fullpath), "%s/%s", dir_path, ent->d_name);
-#ifdef _WIN32
-                struct _stat st;
-                if (_stat(fullpath, &st) == 0 && (st.st_mode & _S_IFDIR))
-                    is_dir = true;
-#else
                 struct stat st;
                 if (stat(fullpath, &st) == 0 && S_ISDIR(st.st_mode))
                     is_dir = true;
-#endif
             }
+#endif
             comp[strlen(comp)] = is_dir ? PATH_SEPARATOR : ' ';
 
             if (strlen(comp) >= 2 && comp[0] == '.' && comp[1] == PATH_SEPARATOR)
