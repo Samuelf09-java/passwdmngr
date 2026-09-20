@@ -208,4 +208,4 @@ This software includes third-party components:
 - linenoise-ng (BSD-style license)
   Copyright (c) Salvatore Sanfilippo
   Copyright (c) ArangoDB GmbH
-  See third_party-licenses/linenoise-ng-LICENSE.txt
+  See third-party-licenses/linenoise-ng-LICENSE.txt

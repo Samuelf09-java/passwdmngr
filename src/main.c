@@ -6,6 +6,9 @@
 #include "util.h"
 #include <sodium.h>
 #include <sys/stat.h>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 AppMode mode;
 
@@ -147,6 +150,16 @@ static int run_cli(int argc, char **argv) {
     X(argv);
 
     mode = CLI;
+
+#ifdef _WIN32
+    if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
+        AllocConsole();
+    }
+
+    freopen("CONOUT$", "w", stdout);
+    freopen("CONOUT$", "w", stderr);
+    freopen("CONIN$", "r", stdin);
+#endif
 
     if (!app_init()) {
         util_log(LOG_FATAL, "app init failed");

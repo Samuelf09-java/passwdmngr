@@ -24,13 +24,15 @@
       ConfigurableDirectory="INSTALLFOLDER">
       <ComponentGroupRef Id="AppComponents" />
       <ComponentGroupRef Id="ShortcutComponents" />
+      <ComponentRef Id="LicenseFile" />
     </Feature>
 
     <Icon Id="AppIcon" SourceFile="resources/icons/hicolor/128x128/apps/logo.ico" />
     <Property Id="ARPPRODUCTICON" Value="AppIcon" />
 
-    <UIRef Id="WixUI_InstallDir" />
+    <UIRef Id="WixUI_Minimal" />
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <Property Id="WIXUI_LICENSE_RTF" Value="LICENSE.rtf" />
 
   </Product>
 
@@ -50,9 +52,10 @@
   </Fragment>
 
   <!-- Start Menu shortcut -->
-  <Fragment>     
+  <Fragment>
     <ComponentGroup Id="ShortcutComponents">
-      <Component Id="cmp_StartMenuShortcut" Guid="f2d3e4a5-c7b8-4d9e-9f51-223344556677" Directory="PasswdMngrProgramMenuDir">
+      <Component Id="cmp_StartMenuShortcut" Guid="f2d3e4a5-c7b8-4d9e-9f51-223344556677"
+        Directory="PasswdMngrProgramMenuDir">
         <Shortcut
           Id="PasswdMngrShortcut"
           Name="Password Manager"
@@ -74,4 +77,11 @@
     </ComponentGroup>
   </Fragment>
 
+  <Fragment>
+    <DirectoryRef Id="TARGETDIR">
+      <Component Id="LicenseFile" Guid="111a1719-45f8-4ea4-829b-d6838d20948e">
+        <File Id="ApacheLicense" Source="LICENSE.rtf" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+  </Fragment>
 </Wix>
