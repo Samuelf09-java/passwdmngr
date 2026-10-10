@@ -1,8 +1,8 @@
 #include "storage.h"
+#include "cJSON.h"
 #include "crypto.h"
 #include "main.h"
 #include "util.h"
-#include <json-glib/json-glib.h>
 #include <sodium.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -77,9 +77,9 @@ bool load_accounts() {
 
     if (memcmp(hdr->hash, hash, HASH_LEN)) {
         util_log(LOG_FATAL, "Could not verify accounts.bin integrity; hashes do not match!");
-        // free(hash);
-        // free(accounts_buf);
-        // return false;
+        free(hash);
+        free(accounts_buf);
+        return false;
     }
 
     free(hash);
@@ -104,8 +104,8 @@ bool init_accounts() {
     hdr->version      = ACCOUNTS_SCHEMA_VERSION;
     hdr->num_accounts = 0;
 
-    uint8_t *hash =
-        sha_256_hash((uint8_t *)(hdr + sizeof(AccountHeader) - 10 - HASH_LEN), sizeof(AccountHeader) - 10 - HASH_LEN);
+    uint8_t *hash = sha_256_hash((uint8_t *)((uint8_t *)hdr + sizeof(AccountHeader) - 10 - HASH_LEN),
+                                 sizeof(AccountHeader) - 10 - HASH_LEN);
     if (!util_check_ptr(hash, "Failed to hash accounts header")) {
         free(hdr);
         return false;
@@ -129,24 +129,19 @@ bool init_accounts() {
 
 void init_pref_json(char *pref_path) {
 
-    JsonBuilder *builder = json_builder_new();
+    cJSON *root = cJSON_CreateObject();
+    cJSON_AddArrayToObject(root, "preferences");
 
-    json_builder_begin_object(builder);
-    json_builder_set_member_name(builder, "preferences");
-    json_builder_begin_array(builder);
+    char *pref_json = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
 
-    json_builder_end_array(builder);
-    json_builder_end_object(builder);
-
-    JsonGenerator *gen  = json_generator_new();
-    JsonNode      *root = json_builder_get_root(builder);
-
-    json_generator_set_root(gen, root);
-    json_generator_to_file(gen, pref_path, NULL);
-
-    json_node_free(root);
-    g_object_unref(gen);
-    g_object_unref(builder);
+    FILE *fp = fopen(pref_path, "w");
+    if (!fp) {
+        util_log(LOG_ERROR, "Failed to open/create preferences file at %s!", pref_path);
+        return;
+    }
+    fwrite(pref_json, 1, strlen(pref_json), fp);
+    fclose(fp);
 }
 
 void save_accounts() {
@@ -191,83 +186,82 @@ int storage_read_prefs(UserPref **prefs) {
     if (!util_check_ptr(prefs_path, "Failed to build path to preferences.json"))
         return -1;
 
-    JsonParser *parser = json_parser_new();
-    if (!json_parser_load_from_file(parser, prefs_path, NULL)) {
-        util_log(LOG_ERROR, "Failed to load preferences.json");
-        g_object_unref(parser);
+    FILE *fp = fopen(prefs_path, "r");
+    if (!fp) {
+        util_log(LOG_ERROR, "Failed to read preferences file!");
+        return -4;
+    }
+
+    fseek(fp, 0, SEEK_END);
+    long fsize = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+
+    char *prefs_json = ec_malloc(fsize);
+    ec_fread(prefs_json, 1, fsize, fp);
+    fclose(fp);
+
+    cJSON *root = NULL;
+
+    if (!(root = cJSON_Parse(prefs_json))) {
+        util_log(LOG_ERROR, "Failed to parse preferences.json");
+        free(prefs_json);
         return -2;
     }
 
-    JsonNode   *root = json_parser_get_root(parser);
-    JsonObject *obj  = json_node_get_object(root);
+    free(prefs_json);
 
-    JsonArray *prefs_array = json_object_get_array_member(obj, "preferences");
+    cJSON *prefs_array = cJSON_GetObjectItemCaseSensitive(root, "preferences");
     if (!util_check_ptr(prefs_array, "preferences.json missing 'preferences' array")) {
-        g_object_unref(parser);
+        cJSON_Delete(root);
         return -3;
     }
 
-    int num_prefs = json_array_get_length(prefs_array);
+    int num_prefs = cJSON_GetArraySize(prefs_array);
     *prefs        = ec_malloc(sizeof(UserPref) * num_prefs);
 
     for (int i = 0; i < num_prefs; i++) {
-        JsonObject *entry = json_array_get_object_element(prefs_array, i);
+        cJSON *entry = cJSON_GetArrayItem(prefs_array, i);
 
-        const char *uname_hash = json_object_get_string_member(entry, "uname_hash");
+        const char *uname_hash = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(prefs_array, "uname_hash"));
 
         (*prefs)[i].uname_hash = strdup(uname_hash);
     }
 
-    g_object_unref(parser);
+    cJSON_Delete(root);
     return num_prefs;
 }
 
 bool storage_save_prefs(UserPref *prefs, int num_prefs) {
-    JsonBuilder *builder = json_builder_new();
-
-    json_builder_begin_object(builder);
-    json_builder_set_member_name(builder, "preferences");
-    json_builder_begin_array(builder);
+    cJSON *root        = cJSON_CreateObject();
+    cJSON *prefs_array = cJSON_AddArrayToObject(root, "preferences");
 
     for (int i = 0; i < num_prefs; i++) {
-        json_builder_begin_object(builder);
-
-        json_builder_set_member_name(builder, "uname_hash");
-        json_builder_add_string_value(builder, prefs[i].uname_hash);
-
-        json_builder_end_object(builder);
+        cJSON *obj = cJSON_CreateObject();
+        cJSON_AddStringToObject(obj, "uname_hash", prefs[i].uname_hash);
+        cJSON_AddItemToArray(prefs_array, obj);
     }
 
-    json_builder_end_array(builder);
-    json_builder_end_object(builder);
-
-    JsonGenerator *gen  = json_generator_new();
-    JsonNode      *root = json_builder_get_root(builder);
-
-    json_generator_set_root(gen, root);
-    json_generator_set_pretty(gen, true);
+    char *prefs_json = cJSON_Print(root);
+    cJSON_Delete(root);
 
     char *prefs_path = util_get_prefs_file();
     if (!util_check_ptr(prefs_path, "Failed to build path to preferences.json")) {
-        json_node_free(root);
-        g_object_unref(gen);
-        g_object_unref(builder);
+        free(prefs_json);
         return false;
     }
 
-    if (!json_generator_to_file(gen, prefs_path, NULL)) {
-        util_log(LOG_ERROR, "Failed to save prefs to preferences.json");
+    FILE *fp = fopen(prefs_path, "w");
+    if (!fp) {
+        util_log(LOG_ERROR, "Failed to open preferences file at %s!", prefs_path);
         free(prefs_path);
-        json_node_free(root);
-        g_object_unref(gen);
-        g_object_unref(builder);
+        free(prefs_json);
         return false;
     }
+    fwrite(prefs_json, 1, strlen(prefs_json), fp);
+    fclose(fp);
 
     free(prefs_path);
-    json_node_free(root);
-    g_object_unref(gen);
-    g_object_unref(builder);
+    free(prefs_json);
     return true;
 }
 
@@ -602,25 +596,16 @@ int storage_dump_json(char *vault, char **out, uint8_t *key, bool pretty) {
     }
 
     if (pretty) {
-        JsonParser *parser = json_parser_new();
+        cJSON *root = cJSON_Parse((char *)plaintext);
 
-        if (!json_parser_load_from_data(parser, (char *)plaintext, -1, NULL)) {
+        if (!root) {
             util_log(LOG_ERROR, "Failed to parse JSON string");
-            g_object_unref(parser);
             free(plaintext);
             return -8;
         }
 
-        JsonNode *root = json_parser_get_root(parser);
-
-        JsonGenerator *gen = json_generator_new();
-        json_generator_set_root(gen, root);
-        json_generator_set_pretty(gen, true);
-
-        *out = json_generator_to_data(gen, NULL);
-
-        g_object_unref(gen);
-        g_object_unref(parser);
+        *out = cJSON_Print(root);
+        cJSON_Delete(root);
         free(plaintext);
         return strlen(*out);
     }
@@ -631,50 +616,26 @@ int storage_dump_json(char *vault, char **out, uint8_t *key, bool pretty) {
 
 bool encrypt_entries(PasswdEntry *entries, int num_entries, uint8_t *salt, uint8_t **ciphertext, int *ciphertext_len,
                      uint8_t **nonce, uint8_t **tag) {
-    JsonBuilder *builder = json_builder_new();
-    json_builder_begin_object(builder);
-
-    json_builder_set_member_name(builder, "entries");
-    json_builder_begin_array(builder);
+    cJSON *root        = cJSON_CreateObject();
+    cJSON *entries_arr = cJSON_AddArrayToObject(root, "entries");
 
     for (int i = 0; i < num_entries; i++) {
-        json_builder_begin_object(builder);
-
-        json_builder_set_member_name(builder, "id");
-        json_builder_add_int_value(builder, entries[i].id);
-
-        json_builder_set_member_name(builder, "service");
-        json_builder_add_string_value(builder, entries[i].service);
-
-        json_builder_set_member_name(builder, "username");
-        json_builder_add_string_value(builder, entries[i].username);
-
-        json_builder_set_member_name(builder, "password");
-        json_builder_add_string_value(builder, entries[i].password);
-
-        json_builder_set_member_name(builder, "notes");
-        json_builder_add_string_value(builder, entries[i].notes);
-
-        json_builder_end_object(builder);
+        cJSON *obj = cJSON_CreateObject();
+        cJSON_AddNumberToObject(obj, "id", entries[i].id);
+        cJSON_AddStringToObject(obj, "service", entries[i].service);
+        cJSON_AddStringToObject(obj, "username", entries[i].username);
+        cJSON_AddStringToObject(obj, "password", entries[i].password);
+        cJSON_AddStringToObject(obj, "notes", entries[i].notes);
+        cJSON_AddItemToArray(entries_arr, obj);
     }
 
-    json_builder_end_array(builder);
-    json_builder_end_object(builder);
-
-    JsonGenerator *gen  = json_generator_new();
-    JsonNode      *root = json_builder_get_root(builder);
-
-    json_generator_set_root(gen, root);
-    char *json_data = json_generator_to_data(gen, NULL);
-
-    json_node_free(root);
-    g_object_unref(gen);
-    g_object_unref(builder);
+    char *json_data = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
 
     if (!key_set) {
         if (!derive_vault_key(tmp_passwd, salt, aes_key, sizeof(aes_key))) {
             util_log(LOG_ERROR, "Failed to derive vault key");
-            g_free(json_data);
+            free(json_data);
             return false;
         }
         key_set = true;
@@ -694,7 +655,7 @@ bool encrypt_entries(PasswdEntry *entries, int num_entries, uint8_t *salt, uint8
 
     *ciphertext_len = aes_gcm_encrypt((uint8_t *)json_data, plaintext_len, aes_key, *nonce, 12, *ciphertext, *tag);
 
-    g_free(json_data);
+    free(json_data);
 
     if (*ciphertext_len <= 0) {
         util_log(LOG_ERROR, "Vault encryption failed");
@@ -722,40 +683,37 @@ bool decrypt_entries_with_key(uint8_t *key, uint8_t *ciphertext, int ciphertext_
         return false;
     }
 
-    JsonParser *parser = json_parser_new();
-    if (!json_parser_load_from_data(parser, (char *)plaintext, plaintext_len, NULL)) {
+    cJSON *root = cJSON_Parse((char *)plaintext);
+    if (!root) {
         util_log(LOG_ERROR, "Failed to load json from decrypted vault.bin");
-        g_object_unref(parser);
         free(plaintext);
         return false;
     }
 
-    JsonNode   *root = json_parser_get_root(parser);
-    JsonObject *obj  = json_node_get_object(root);
-
-    JsonArray *entries_array = json_object_get_array_member(obj, "entries");
+    cJSON *entries_array = cJSON_GetObjectItemCaseSensitive(root, "entries");
     if (!entries_array) {
         util_log(LOG_ERROR, "decrypted data missing 'entries' array");
-        g_object_unref(parser);
+        cJSON_Delete(root);
         return false;
     }
 
-    *num_entries = json_array_get_length(entries_array);
+    *num_entries = cJSON_GetArraySize(entries_array);
 
     *entries = ec_malloc(sizeof(PasswdEntry) * *num_entries);
     if (!entries) {
         util_log(LOG_ERROR, "malloc failed for passwdentry array");
+        cJSON_Delete(root);
         return false;
     }
 
     for (int i = 0; i < *num_entries; i++) {
-        JsonObject *entry = json_array_get_object_element(entries_array, i);
+        cJSON *entry = cJSON_GetArrayItem(entries_array, i);
 
-        int         id       = json_object_get_int_member(entry, "id");
-        const char *service  = json_object_get_string_member(entry, "service");
-        const char *username = json_object_get_string_member(entry, "username");
-        const char *password = json_object_get_string_member(entry, "password");
-        const char *notes    = json_object_get_string_member(entry, "notes");
+        int         id       = cJSON_GetNumberValue(cJSON_GetObjectItem(entry, "id"));
+        const char *service  = cJSON_GetStringValue(cJSON_GetObjectItem(entry, "service"));
+        const char *username = cJSON_GetStringValue(cJSON_GetObjectItem(entry, "username"));
+        const char *password = cJSON_GetStringValue(cJSON_GetObjectItem(entry, "password"));
+        const char *notes    = cJSON_GetStringValue(cJSON_GetObjectItem(entry, "notes"));
 
         (*entries)[i].id       = id;
         (*entries)[i].service  = strdup(service);
@@ -764,7 +722,7 @@ bool decrypt_entries_with_key(uint8_t *key, uint8_t *ciphertext, int ciphertext_
         (*entries)[i].notes    = strdup(notes);
     }
 
-    g_object_unref(parser);
+    cJSON_Delete(root);
     free(plaintext);
 
     return true;

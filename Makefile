@@ -1,9 +1,9 @@
 CC ?= gcc
 
 CFLAGS = -Wall -Wextra -O2 -I./include
-CFLAGS += $(shell pkg-config --cflags gtk4 json-glib-1.0)
+CFLAGS += $(shell pkg-config --cflags gtk4)
 
-LDLIBS := $(shell pkg-config --libs gtk4 json-glib-1.0) -lsodium -lcrypto -lssl
+LDLIBS := $(shell pkg-config --libs gtk4) -lsodium -lcrypto -lssl
 
 SRC := $(shell find src -name '*.c')
 OBJ := $(patsubst src/%.c, build/%.o, $(SRC))
@@ -158,9 +158,9 @@ WIN_TARGET = passwdmngr.exe
 WIN_PREFIX = /home/samuelf09/passwdmngr-c/mingw64
 
 WIN_CFLAGS = -Wall -Wextra -O2 -I./include
-WIN_CFLAGS += $(shell PKG_CONFIG_PATH=./mingw64/lib/pkgconfig/ pkg-config --cflags gtk4 json-glib-1.0)
+WIN_CFLAGS += $(shell PKG_CONFIG_PATH=./mingw64/lib/pkgconfig/ pkg-config --cflags gtk4)
 
-WIN_LDLIBS := $(shell PKG_CONFIG_PATH=./mingw64/lib/pkgconfig/ pkg-config --libs gtk4 json-glib-1.0) -lsodium -lcrypto -lssl
+WIN_LDLIBS := $(shell PKG_CONFIG_PATH=./mingw64/lib/pkgconfig/ pkg-config --libs gtk4) -lsodium -lcrypto -lssl
 WIN_LDLIBS := $(filter-out -lvulkan,$(WIN_LDLIBS))
 
 build/resources-win.o: build/resources.c

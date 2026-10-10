@@ -209,3 +209,7 @@ This software includes third-party components:
   Copyright (c) Salvatore Sanfilippo
   Copyright (c) ArangoDB GmbH
   See third-party-licenses/linenoise-ng-LICENSE.txt
+
+- cJSON (MIT License)
+  Copyright (c) 2009-2020 Dave Gamble and cJSON contributors
+  See third-party-licenses/cJSON-LICENSE.txt
