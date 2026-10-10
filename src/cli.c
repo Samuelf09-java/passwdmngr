@@ -5,12 +5,12 @@
 #include <termios.h>
 #endif
 
+#include "cJSON.h"
 #include "cli.h"
 #include "crypto.h"
 #include "linenoise.h"
 #include "storage.h"
 #include "util.h"
-#include <json-glib/json-glib.h>
 #include <sodium.h>
 #include <sys/stat.h>
 
@@ -3128,44 +3128,41 @@ bool cli_init() {
 
     const char *data = g_bytes_get_data(bytes, &size);
 
-    JsonParser *parser = json_parser_new();
-    if (!json_parser_load_from_data(parser, data, size, &error)) {
-        util_log(LOG_ERROR, "Failed to parse commands.json: %s", error->message);
-        g_clear_error(&error);
-        g_object_unref(parser);
-        g_bytes_unref(bytes);
+    cJSON *root = cJSON_Parse(data);
+    g_bytes_unref(bytes);
+    if (!root) {
+        util_log(LOG_ERROR, "Failed to parse commands.json!");
         return false;
     }
 
-    g_bytes_unref(bytes);
+    cJSON *json_commands = cJSON_GetObjectItem(root, "commands");
+    if (!json_commands) {
+        util_log(LOG_ERROR, "Failed to get commands array!");
+        return false;
+    }
 
-    JsonNode   *root          = json_parser_get_root(parser);
-    JsonObject *root_obj      = json_node_get_object(root);
-    JsonArray  *json_commands = json_object_get_array_member(root_obj, "commands");
+    int cmd_count = cJSON_GetArraySize(json_commands);
 
-    guint cmd_count = json_array_get_length(json_commands);
+    for (int i = 0; i < cmd_count; i++) {
+        cJSON *cmd = cJSON_GetArrayItem(json_commands, i);
 
-    for (guint i = 0; i < cmd_count; i++) {
-        JsonObject *cmd = json_array_get_object_element(json_commands, i);
-
-        const char *name = json_object_get_string_member(cmd, "name");
+        const char *name = cJSON_GetObjectItem(cmd, "name")->valuestring;
         register_cmd((char *)name);
 
-        JsonArray *aliases = json_object_get_array_member(cmd, "aliases");
-        for (guint j = 0; j < json_array_get_length(aliases); j++) {
-            const char *alias = json_array_get_string_element(aliases, j);
+        cJSON *aliases = cJSON_GetObjectItem(cmd, "aliases");
+        for (int j = 0; j < cJSON_GetArraySize(aliases); j++) {
+            const char *alias = cJSON_GetArrayItem(aliases, j)->valuestring;
             register_alias((char *)name, (char *)alias);
         }
 
-        JsonArray *args = json_object_get_array_member(cmd, "args");
-        for (guint j = 0; j < json_array_get_length(args); j++) {
-            JsonObject *arg = json_array_get_object_element(args, j);
+        cJSON *args = cJSON_GetObjectItem(cmd, "args");
+        for (int j = 0; j < cJSON_GetArraySize(args); j++) {
+            cJSON *arg = cJSON_GetArrayItem(args, j);
 
-            const char *arg_name = json_object_get_string_member(arg, "name");
+            const char *arg_name = cJSON_GetObjectItem(arg, "name")->valuestring;
+            const char *type_str = cJSON_GetObjectItem(arg, "type")->valuestring;
 
-            const char *type_str = json_object_get_string_member(arg, "type");
-
-            int excl_group = json_object_get_int_member(arg, "excl_group");
+            int excl_group = (int)cJSON_GetObjectItem(arg, "excl_group")->valuedouble;
 
             ArgumentType type;
             if (!strcmp(type_str, "STRING"))
@@ -3182,9 +3179,9 @@ bool cli_init() {
             register_arg((char *)name, (char *)arg_name, type, excl_group);
         }
 
-        JsonArray *flags = json_object_get_array_member(cmd, "flags");
-        for (guint j = 0; j < json_array_get_length(flags); j++) {
-            const char *flag = json_array_get_string_element(flags, j);
+        cJSON *flags = cJSON_GetObjectItem(cmd, "flags");
+        for (int j = 0; j < cJSON_GetArraySize(flags); j++) {
+            const char *flag = cJSON_GetArrayItem(flags, j)->valuestring;
             register_arg((char *)name, (char *)flag, FLAG, 0);
         }
 
@@ -3198,7 +3195,7 @@ bool cli_init() {
         }
     }
 
-    g_object_unref(parser);
+    cJSON_Delete(root);
 
     return true;
 }

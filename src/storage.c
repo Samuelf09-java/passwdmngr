@@ -210,7 +210,7 @@ int storage_read_prefs(UserPref **prefs) {
 
     free(prefs_json);
 
-    cJSON *prefs_array = cJSON_GetObjectItemCaseSensitive(root, "preferences");
+    cJSON *prefs_array = cJSON_GetObjectItem(root, "preferences");
     if (!util_check_ptr(prefs_array, "preferences.json missing 'preferences' array")) {
         cJSON_Delete(root);
         return -3;
@@ -222,7 +222,7 @@ int storage_read_prefs(UserPref **prefs) {
     for (int i = 0; i < num_prefs; i++) {
         cJSON *entry = cJSON_GetArrayItem(prefs_array, i);
 
-        const char *uname_hash = cJSON_GetStringValue(cJSON_GetObjectItemCaseSensitive(prefs_array, "uname_hash"));
+        const char *uname_hash = cJSON_GetStringValue(cJSON_GetObjectItem(entry, "uname_hash"));
 
         (*prefs)[i].uname_hash = strdup(uname_hash);
     }

@@ -169,22 +169,24 @@ char *gen_passwd(int len, char *special, bool digits, bool uppers, bool lowers) 
     return out;
 }
 
-int aes_gcm_encrypt(const uint8_t *plaintext, uint64_t plaintext_len, const uint8_t *key, const uint8_t *iv,
-                    uint64_t iv_len, uint8_t *ciphertext, uint8_t *tag) {
-    uint64_t ciphertext_len;
+int aes_gcm_encrypt(uint8_t *plaintext, int plaintext_len, uint8_t *key, uint8_t *iv, int iv_len, uint8_t *ciphertext,
+                    uint8_t *tag) {
+    X(iv_len);
+    unsigned long long ciphertext_len;
 
     crypto_aead_aes256gcm_encrypt(ciphertext, &ciphertext_len, plaintext, plaintext_len, NULL, 0, NULL, iv, key);
 
     // libsodium appends tag to ciphertext; extract last 16 bytes
     memcpy(tag, ciphertext + ciphertext_len - crypto_aead_aes256gcm_ABYTES, crypto_aead_aes256gcm_ABYTES);
 
-    return ciphertext_len >= 0 ? (int)ciphertext_len - TAG_LEN : (int)ciphertext_len;
+    return ciphertext_len > 0 ? (int)ciphertext_len - TAG_LEN : (int)ciphertext_len;
 }
 
-int aes_gcm_decrypt(const uint8_t *ciphertext, uint64_t ciphertext_len, const uint8_t *key, const uint8_t *iv,
-                    uint64_t iv_len, const uint8_t *tag, uint8_t *plaintext) {
-    uint64_t plaintext_len;
-    uint8_t *combined = ec_malloc(ciphertext_len + crypto_aead_aes256gcm_ABYTES);
+int aes_gcm_decrypt(uint8_t *ciphertext, int ciphertext_len, uint8_t *key, uint8_t *iv, int iv_len, uint8_t *tag,
+                    uint8_t *plaintext) {
+    X(iv_len);
+    unsigned long long plaintext_len;
+    uint8_t           *combined = ec_malloc(ciphertext_len + crypto_aead_aes256gcm_ABYTES);
 
     // libsodium expects tag appended to ciphertext
     memcpy(combined, ciphertext, ciphertext_len);
