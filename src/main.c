@@ -9,6 +9,9 @@
 #ifdef _WIN32
 #include <windows.h>
 #endif
+#ifndef NO_CLOUD
+#include "remote.h"
+#endif
 
 AppMode mode;
 
@@ -62,7 +65,6 @@ static bool app_init() {
             return false;
         }
 
-    contents    = NULL;
     length      = 0;
     file_exists = g_file_get_contents(pref_path, &contents, &length, NULL);
     g_free(contents);
@@ -72,16 +74,44 @@ static bool app_init() {
     if (!file_exists || length == 0)
         init_pref_json(pref_path);
 
+    char *servers_path = util_get_servers_file();
+
+    length      = 0;
+    file_exists = g_file_get_contents(servers_path, &contents, &length, NULL);
+    free(servers_path);
+    g_free(contents);
+    contents = NULL;
+
     free(accounts_path);
     free(pref_path);
     free(user_vaults_dir);
     free(root);
+
+    // Same for servers.json
+    if (!file_exists || length == 0)
+        if (!init_servers()) {
+            util_log(LOG_FATAL, "Failed to initialize servers.json!");
+            return false;
+        }
 
     // Load accounts.bin
     if (!load_accounts()) {
         util_log(LOG_FATAL, "Failed to load account data from accounts.bin; check log for more information");
         return false;
     }
+
+    if (!load_servers()) {
+        util_log(LOG_FATAL, "Failed to load server list from servers.bin!");
+        return false;
+    }
+
+#ifndef NO_CLOUD
+
+    pthread_t cloud_tid;
+    pthread_create(&cloud_tid, NULL, cloud_thread, NULL); // cloud sync worker
+    pthread_detach(cloud_tid);
+
+#endif
 
     return true;
 }
@@ -126,13 +156,7 @@ static void on_shutdown(GApplication *app, gpointer user_data) {
         wipe_passwd_entries(entries, num_entries);
     entries     = NULL;
     num_entries = 0;
-    if (tmp_passwd) {
-        wipe_mem(tmp_passwd, strlen(tmp_passwd));
-        free(tmp_passwd);
-        tmp_passwd = NULL;
-    }
-    wipe_mem(aes_key, sizeof(aes_key));
-    key_set = false;
+    wipe_keys();
     if (username) {
         free(username);
         username = NULL;

@@ -1,7 +1,10 @@
-#include "storage.h"
+#include "server.h"
+
 #include "cJSON.h"
 #include "crypto.h"
 #include "main.h"
+#include "remote.h"
+#include "storage.h"
 #include "util.h"
 #include <sodium.h>
 #include <stdio.h>
@@ -13,12 +16,17 @@ int          num_accounts;
 Account     *accounts = NULL;
 PasswdEntry *entries  = NULL;
 
-char   *tmp_passwd = NULL;
-uint8_t aes_key[32];
-bool    key_set = false;
+ServerEntry *server_entries = NULL;
+int          num_servers    = 0;
+
+KeyRing keys = {{0}, {0}, {0}, 0};
 
 char *username    = NULL;
 int   num_entries = 0;
+
+#ifndef NO_CLOUD
+char *token_b64 = NULL;
+#endif
 
 UserPref *curr_prefs = NULL;
 
@@ -26,6 +34,197 @@ static int compare_entries_by_service(const void *a, const void *b) { // Sort al
     const PasswdEntry *ea = a;
     const PasswdEntry *eb = b;
     return strcasecmp(ea->service, eb->service);
+}
+
+static int server_priority_sort(const void *a, const void *b);
+
+static Account *get_account(const char *uname) {
+
+    uint8_t *uname_hash = sha_256_hash((uint8_t *)uname, strlen(uname));
+    if (!uname_hash) {
+        util_log(LOG_ERROR, "Failed to hash uname!");
+        return NULL;
+    }
+
+    for (int i = 0; i < num_accounts; i++)
+        if (!memcmp(accounts[i].uname_hash, uname_hash, UNAME_HASH_LEN)) {
+            free(uname_hash);
+            return &accounts[i];
+        }
+
+    free(uname_hash);
+    return NULL;
+}
+
+int load_servers() {
+
+    if (server_entries) {
+        util_log(LOG_WARN, "server_entries already loaded! Overwriting...");
+        free_servers();
+    }
+
+    char *servers_path = util_get_servers_file();
+    if (!util_check_ptr(servers_path, "Failed to build path to servers.json"))
+        return -1;
+
+    FILE *fp = fopen(servers_path, "r");
+    free(servers_path);
+    if (!fp) {
+        util_log(LOG_ERROR, "Failed to read servers file!");
+        return -2;
+    }
+
+    fseek(fp, 0, SEEK_END);
+    long fsize = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+
+    char *servers_j = ec_malloc(fsize);
+    ec_fread(servers_j, 1, fsize, fp);
+    fclose(fp);
+
+    cJSON *root = NULL;
+
+    if (!(root = cJSON_Parse(servers_j))) {
+        util_log(LOG_ERROR, "Failed to parse servers.json");
+        free(servers_j);
+        return -2;
+    }
+
+    free(servers_j);
+
+    cJSON *servers_array = cJSON_GetObjectItem(root, "servers");
+    if (!util_check_ptr(servers_array, "servers.json missing 'servers' array")) {
+        cJSON_Delete(root);
+        return -3;
+    }
+
+    num_servers    = cJSON_GetArraySize(servers_array);
+    server_entries = ec_malloc(sizeof(ServerEntry) * num_servers);
+
+    for (int i = 0; i < num_servers; i++) {
+        cJSON *entry  = cJSON_GetArrayItem(servers_array, i);
+        cJSON *ip_j   = cJSON_GetObjectItem(entry, "ip");
+        cJSON *port_j = cJSON_GetObjectItem(entry, "port");
+        cJSON *prio_j = cJSON_GetObjectItem(entry, "priority");
+
+        if (!ip_j || !port_j || !prio_j || !cJSON_IsString(ip_j) || !cJSON_IsNumber(port_j) ||
+            !cJSON_IsNumber(prio_j) || (uint32_t)port_j->valuedouble > UINT16_MAX ||
+            (uint32_t)prio_j->valuedouble > UINT8_MAX) {
+            util_log(LOG_ERROR, "Invalid fields in servers.json!");
+            return -4;
+        }
+
+        server_entries[i].ip       = strdup(ip_j->valuestring);
+        server_entries[i].port     = (uint16_t)port_j->valuedouble;
+        server_entries[i].priority = (uint8_t)prio_j->valuedouble;
+
+        util_log(LOG_DEBUG, "Got server with ip %s:%d; priority: %d", server_entries[i].ip, server_entries[i].port,
+                 server_entries[i].priority);
+    }
+
+    qsort(server_entries, num_servers, sizeof(ServerEntry), server_priority_sort);
+
+    cJSON_Delete(root);
+    return num_servers;
+}
+
+bool init_servers() {
+
+    char *servers_path = util_get_servers_file();
+
+    cJSON *root = cJSON_CreateObject();
+    cJSON_AddArrayToObject(root, "servers");
+
+    char *servers_json = cJSON_Print(root);
+    cJSON_Delete(root);
+
+    FILE *fp = fopen(servers_path, "w");
+    if (!fp) {
+        util_log(LOG_ERROR, "Failed to open/create servers file at %s!", servers_path);
+        free(servers_path);
+        return false;
+    }
+    free(servers_path);
+    fwrite(servers_json, 1, strlen(servers_json), fp);
+    fclose(fp);
+
+    return true;
+}
+
+static int server_priority_sort(const void *a, const void *b) {
+    int x = (int)((ServerEntry *)a)->priority;
+    int y = (int)((ServerEntry *)b)->priority;
+    return x - y;
+}
+
+bool save_servers() {
+
+    qsort(server_entries, num_servers, sizeof(ServerEntry), server_priority_sort);
+
+    cJSON *root = cJSON_CreateObject();
+    cJSON_AddArrayToObject(root, "servers");
+
+    for (int i = 0; i < num_servers; i++) {
+        cJSON *entry = cJSON_CreateObject();
+        cJSON_AddStringToObject(entry, "ip", server_entries[i].ip);
+        cJSON_AddNumberToObject(entry, "port", server_entries[i].port);
+        cJSON_AddNumberToObject(entry, "priority", server_entries[i].priority);
+        cJSON_AddItemToArray(cJSON_GetObjectItem(root, "servers"), entry);
+    }
+
+    char *json = cJSON_Print(root);
+    cJSON_Delete(root);
+
+    char *servers_path = util_get_servers_file();
+
+    FILE *fp = fopen(servers_path, "w");
+    if (!fp) {
+        util_log(LOG_ERROR, "Failed to open/create servers file at %s!", servers_path);
+        free(servers_path);
+        return false;
+    }
+    free(servers_path);
+    fwrite(json, 1, strlen(json), fp);
+    fclose(fp);
+
+    return true;
+}
+
+void free_servers() {
+    if (!server_entries)
+        return;
+
+    for (int i = 0; i < num_servers; i++)
+        free(server_entries[i].ip);
+
+    free(server_entries);
+    server_entries = NULL;
+    num_servers    = 0;
+}
+
+bool try_pwmngr_connect() {
+    for (int i = 0; i < num_servers; i++) {
+
+        int res = pwmngr_connect(server_entries[i].ip, server_entries[i].port);
+        if (res) {
+            util_log(LOG_WARN, "Failed to connect to server at %s:%d!", server_entries[i].ip, server_entries[i].port);
+            continue;
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+static void free_accounts() {
+    if (!accounts)
+        return;
+    for (int i = 0; i < num_accounts; i++)
+        if (accounts[i].email)
+            free(accounts[i].email);
+    free(accounts);
+    accounts = NULL;
 }
 
 bool load_accounts() {
@@ -49,9 +248,9 @@ bool load_accounts() {
 
     AccountHeader *hdr = (AccountHeader *)accounts_buf;
 
-    int64_t expected_size = sizeof(AccountHeader) + hdr->num_accounts * sizeof(Account);
+    int64_t min_size = sizeof(AccountHeader) + hdr->num_accounts * (sizeof(Account) - sizeof(char *));
 
-    if (fsize < expected_size) {
+    if (fsize < min_size) {
         util_log(LOG_ERROR, "accounts.bin truncated or corrupted");
         free(accounts_buf);
         return false;
@@ -89,8 +288,33 @@ bool load_accounts() {
     int i        = 0;
 
     for (uint8_t *p = accounts_buf + sizeof(AccountHeader);
-         p < accounts_buf + sizeof(AccountHeader) + num_accounts * sizeof(Account); p += sizeof(Account))
-        memcpy(&accounts[i++], p, sizeof(Account));
+         p < accounts_buf + sizeof(AccountHeader) + num_accounts * ACCOUNT_SIZE; p += ACCOUNT_SIZE)
+        memcpy(&accounts[i++], p, ACCOUNT_SIZE);
+
+    uint8_t *email_start = accounts_buf + sizeof(AccountHeader) + (ACCOUNT_SIZE * num_accounts);
+
+    int bytes_read     = 0;
+    int remaining_size = fsize - (sizeof(AccountHeader) + (ACCOUNT_SIZE * num_accounts));
+
+    for (int j = 0; j < num_accounts; j++) {
+        if (remaining_size - bytes_read < (int64_t)sizeof(uint16_t)) {
+            util_log(LOG_FATAL, "Invalid email structure in accounts_buf! (not enough space for email_len)");
+            free_accounts();
+            return false;
+        }
+        memcpy(&accounts->email_len, email_start + bytes_read, sizeof(uint16_t));
+        bytes_read += sizeof(uint16_t);
+
+        if (remaining_size - bytes_read < accounts[j].email_len) {
+            util_log(LOG_FATAL, "Invalid email structure in accounts_buf! (not enough space for email)");
+            free_accounts();
+            return false;
+        }
+        accounts[j].email = ec_malloc(accounts[j].email_len + 1);
+        memcpy(accounts[j].email, email_start + bytes_read, accounts[j].email_len);
+        accounts[j].email[accounts[j].email_len] = 0;
+        bytes_read += accounts[j].email_len;
+    }
 
     free(accounts_buf);
 
@@ -99,13 +323,12 @@ bool load_accounts() {
 
 bool init_accounts() {
 
-    AccountHeader *hdr = ec_malloc(sizeof(AccountHeader));
+    AccountHeader *hdr = ec_calloc(1, sizeof(AccountHeader));
     memcpy(hdr->magic, ACCOUNTS_MAGIC, 6);
     hdr->version      = ACCOUNTS_SCHEMA_VERSION;
     hdr->num_accounts = 0;
 
-    uint8_t *hash = sha_256_hash((uint8_t *)((uint8_t *)hdr + sizeof(AccountHeader) - 10 - HASH_LEN),
-                                 sizeof(AccountHeader) - 10 - HASH_LEN);
+    uint8_t *hash = sha_256_hash((uint8_t *)((uint8_t *)hdr + 10 + HASH_LEN), sizeof(AccountHeader) - 10 - HASH_LEN);
     if (!util_check_ptr(hash, "Failed to hash accounts header")) {
         free(hdr);
         return false;
@@ -144,41 +367,116 @@ void init_pref_json(char *pref_path) {
     fclose(fp);
 }
 
-void save_accounts() {
+bool save_accounts() {
 
-    uint8_t       *write_buf = ec_malloc(sizeof(AccountHeader) + sizeof(Account) * num_accounts);
-    AccountHeader *hdr       = (AccountHeader *)write_buf;
-
-    memcpy(hdr->magic, ACCOUNTS_MAGIC, 6);
+    AccountHeader *hdr = ec_calloc(1, sizeof(AccountHeader));
+    memcpy(hdr->magic, ACCOUNTS_MAGIC, strlen(ACCOUNTS_MAGIC));
     hdr->version      = ACCOUNTS_SCHEMA_VERSION;
     hdr->num_accounts = num_accounts;
 
-    int i = 0;
-    for (uint8_t *p = write_buf + sizeof(AccountHeader);
-         p < write_buf + sizeof(AccountHeader) + sizeof(Account) * num_accounts; p += sizeof(Account))
-        memcpy(p, &accounts[i++], sizeof(Account));
+    int      email_space = (sizeof(uint16_t) + 25) * num_accounts;
+    int      write_len   = sizeof(AccountHeader);
+    uint8_t *write_buf   = ec_realloc(hdr, sizeof(AccountHeader) + (ACCOUNT_SIZE * num_accounts) + email_space);
+    hdr                  = (AccountHeader *)write_buf;
 
-    uint8_t *hash =
-        sha_256_hash(write_buf + 10 + HASH_LEN, sizeof(AccountHeader) - 10 - HASH_LEN + sizeof(Account) * num_accounts);
-    if (!util_check_ptr(hash, "Failed to hash account data for writing to accounts.bin")) {
-        free(write_buf);
-        return;
+    uint8_t *accounts_buf = write_buf + write_len;
+    int      it           = 0;
+    for (uint8_t *p = accounts_buf; p < accounts_buf + num_accounts * ACCOUNT_SIZE; p += ACCOUNT_SIZE)
+        memcpy(p, &accounts[it++], ACCOUNT_SIZE);
+
+    write_len += ACCOUNT_SIZE * num_accounts;
+    int written_email_len = 0;
+
+    for (int i = 0; i < num_accounts; i++) {
+        if (email_space < (int64_t)(sizeof(uint16_t) + accounts[i].email_len)) {
+            // allocate space for ~ten more emails
+            email_space += ((sizeof(uint16_t) + 25)) * 10;
+            write_buf = ec_realloc(write_buf, write_len + email_space);
+        }
+
+        memcpy(write_buf + write_len + written_email_len, &accounts[i].email_len, sizeof(uint16_t));
+        written_email_len += sizeof(uint16_t);
+
+        memcpy(write_buf + write_len + written_email_len, accounts[i].email, accounts[i].email_len);
+        written_email_len += accounts[i].email_len;
     }
 
-    memcpy(hdr->hash, hash, HASH_LEN);
-    free(hash);
+    write_len += written_email_len;
+
+    uint8_t *hash = sha_256_hash(write_buf + 10 + HASH_LEN, write_len - 10 - HASH_LEN);
+    if (hash) {
+        memcpy(hdr->hash, hash, HASH_LEN);
+        free(hash);
+    } else {
+        util_log(LOG_ERROR, "Failed to hash accounts data! (OOM)");
+        return false;
+    }
 
     char *accounts_path = util_get_accounts_file();
     FILE *fp            = fopen(accounts_path, "wb");
-    free(accounts_path);
-    if (!util_check_ptr(fp, "Failed to open accounts file for writing")) {
+    if (!fp) {
+        util_log(LOG_ERROR, "Failed to open accounts file to save data!");
         free(write_buf);
-        return;
+        return false;
     }
 
-    fwrite(write_buf, 1, sizeof(AccountHeader) + sizeof(Account) * num_accounts, fp);
+    fwrite(write_buf, 1, write_len, fp);
+    util_log(LOG_DEBUG, "Wrote %d bytes to accounts.bin", write_len);
     fclose(fp);
+
+    free(write_buf);
+
+    return true;
 }
+
+#ifndef NO_CLOUD
+
+bool save_token() {
+
+    if (!token_b64 || !username)
+        return false;
+
+    Account *acc = get_account(username);
+    if (!acc) {
+        util_log(LOG_ERROR, "Failed to get account from global username!");
+        return false;
+    }
+
+    gsize    token_len;
+    uint8_t *token = g_base64_decode(token_b64, &token_len);
+    if (!token || token_len != TOKEN_LEN) {
+        if (token)
+            g_free(token);
+        util_log(LOG_ERROR, "Failed to decode base64 token! (OOM/invalid length)");
+        return false;
+    }
+
+    uint8_t tag[TAG_LEN];
+    uint8_t e_token[TOKEN_LEN];
+    uint8_t nonce[NONCE_LEN];
+    randombytes_buf(nonce, NONCE_LEN);
+    int e_token_len = aes_gcm_encrypt(token, TOKEN_LEN, keys.vault_key, nonce, NONCE_LEN, e_token, tag);
+    sodium_memzero(token, TOKEN_LEN);
+    g_free(token);
+
+    if (e_token_len != TOKEN_LEN) {
+        util_log(LOG_ERROR, "Failed to encrypt token for storage!");
+        return false;
+    }
+
+    memcpy(acc->e_token, nonce, NONCE_LEN);
+    memcpy(acc->e_token + NONCE_LEN, tag, TAG_LEN);
+    memcpy(acc->e_token + NONCE_LEN + TAG_LEN, e_token, TOKEN_LEN);
+
+    if (!save_accounts()) {
+        util_log(LOG_ERROR, "Failed to save new token to accounts file!");
+        return false;
+    }
+
+    return true;
+}
+
+#endif
 
 int storage_read_prefs(UserPref **prefs) {
 
@@ -295,7 +593,13 @@ UserPref *get_user_prefs(char *uname) {
     return pref;
 }
 
-bool create_new_account(char *uname, char *passwd) {
+bool create_new_account(char *email, char *uname, char *passwd, bool cloud_sync,
+                        sync_job_completion_cb *on_remote_completion) {
+
+    if (cloud_sync && !email) {
+        util_log(LOG_ERROR, "email is required for cloud-enabled account!");
+        return false;
+    }
 
     uint8_t *new_uname_hash = sha_256_hash((uint8_t *)uname, strlen(uname));
     if (!util_check_ptr(new_uname_hash, "Failed to hash username"))
@@ -329,29 +633,114 @@ bool create_new_account(char *uname, char *passwd) {
         return false;
     }
 
+    sodium_memzero(&accounts[num_accounts - 1], sizeof(Account));
+
     memcpy(accounts[num_accounts - 1].uname_hash, new_uname_hash, HASH_LEN);
     memcpy(accounts[num_accounts - 1].passwd_hash, new_passwd_hash, HASH_LEN + SALT_LEN);
+    randombytes_buf(accounts[num_accounts - 1].recovery_key, RK_LEN);
+    randombytes_buf(&accounts[num_accounts - 1].auth_seed_id, sizeof(uint64_t));
+    if (accounts[num_accounts - 1].auth_seed_id < 2)
+        accounts[num_accounts - 1].auth_seed_id += 2;
+    randombytes_buf(accounts[num_accounts - 1].salt, SALT_LEN);
 
-    free(new_uname_hash);
-    free(new_passwd_hash);
+    if (email) {
+        accounts[num_accounts - 1].email     = strdup(email);
+        accounts[num_accounts - 1].email_len = strlen(email);
+    }
 
-    save_accounts();
+    if (!save_accounts()) {
+        util_log(LOG_ERROR, "Failed to save new account!");
+        free(new_uname_hash);
+        free(new_passwd_hash);
+        return false;
+    }
+
+    if (load_keys(&keys, passwd, accounts[num_accounts - 1].salt, accounts[num_accounts - 1].auth_seed_id)) {
+        util_log(LOG_ERROR, "Failed to derive vault & authentication keys!");
+        free(new_uname_hash);
+        free(new_passwd_hash);
+        sodium_memzero(passwd, strlen(passwd));
+        return false;
+    }
+
+#ifndef NO_CLOUD
+
+    SyncJob ca_job = {.type = CREATE_ACC_JOB, .args = NULL, .on_completion = on_remote_completion};
+    remote_add_job(&ca_job);
+
+    // if (!try_pwmngr_connect()) {
+    //     util_log(LOG_ERROR, "Failed to connect to a passwdmngr server!");
+    //     free(new_uname_hash);
+    //     free(new_passwd_hash);
+    //     return false;
+    // }
+
+    // int64_t tmp = accounts[num_accounts - 1].server_last_modified;
+
+    // int create_account_res = remote_create_account(
+    //     email, new_uname_hash, new_passwd_hash, keys.auth_pk, accounts[num_accounts - 1].recovery_key,
+    //     accounts[num_accounts - 1].salt, accounts[num_accounts - 1].auth_seed_id, &tmp, &token_b64);
+
+    // pwmngr_disconnect();
+
+    // accounts[num_accounts - 1].server_last_modified = tmp;
+
+    // free(new_uname_hash);
+    // free(new_passwd_hash);
+
+    // if (create_account_res == DATA_WAIT) {
+    //     // TODO: wait for verification code
+    // } else if (create_account_res) {
+    //     util_log(LOG_ERROR, "Failed to create account with server!");
+    //     // TODO: check errors; try again
+    // } else {
+    //     gsize    token_len;
+    //     uint8_t *token = g_base64_decode(token_b64, &token_len);
+    //     if (!token || token_len != TOKEN_LEN) {
+    //         if (token) {
+    //             sodium_memzero(token, TOKEN_LEN);
+    //             free(token);
+    //         }
+    //         util_log(LOG_ERROR, "Failed to decode base64 token!");
+    //         return false;
+    //     }
+
+    //     uint8_t tag[TAG_LEN];
+    //     uint8_t e_token[TOKEN_LEN];
+    //     uint8_t nonce[NONCE_LEN];
+    //     randombytes_buf(nonce, NONCE_LEN);
+    //     int e_token_len = aes_gcm_encrypt(token, TOKEN_LEN, keys.vault_key, nonce, NONCE_LEN, e_token, tag);
+
+    //     if (e_token_len != TOKEN_LEN) {
+    //         sodium_memzero(token, TOKEN_LEN);
+    //         free(token);
+    //         util_log(LOG_ERROR, "Failed to encrypt token for storage!");
+    //         return false;
+    //     }
+
+    //     memcpy(accounts[num_accounts - 1].e_token, nonce, NONCE_LEN);
+    //     memcpy(accounts[num_accounts - 1].e_token + NONCE_LEN, tag, TAG_LEN);
+    //     memcpy(accounts[num_accounts - 1].e_token + NONCE_LEN + TAG_LEN, e_token, TOKEN_LEN);
+
+    //     if (!save_accounts()) {
+    //         util_log(LOG_ERROR, "Failed to save new token to accounts file!");
+    //         return false;
+    //     }
+    // }
+
+#endif
 
     username = strdup(uname);
 
-    char    *vault_path = storage_get_user_vault_path(uname);
-    uint8_t *salt       = ec_malloc(SALT_LEN);
-    randombytes_buf(salt, SALT_LEN);
+    char *vault_path = storage_get_user_vault_path(uname);
 
-    if (!storage_write_vault(vault_path, NULL, 0, salt)) {
+    if (!storage_write_vault(vault_path, NULL, 0, accounts[num_accounts - 1].salt)) {
         util_log(LOG_ERROR, "Failed to initialize user vault!");
         free(vault_path);
-        free(salt);
         return false;
     }
 
     free(vault_path);
-    free(salt);
 
     util_log(LOG_INFO, "Created new account & vault; saved to accounts.bin");
 
@@ -406,6 +795,79 @@ static bool delete_user_data(char *uname) {
 
 bool storage_delete_account(char *uname) {
 
+#ifndef NO_CLOUD
+
+    if (!try_pwmngr_connect()) {
+        util_log(LOG_ERROR, "Failed to connect to remote server!");
+        return false;
+    }
+
+    Account *acc          = get_account(uname);
+    uint8_t *salt         = NULL;
+    uint64_t auth_seed_id = 0;
+
+    int64_t tmp = acc->server_last_modified;
+
+    int acc_info_res = remote_get_account_info(acc->email, &tmp, &salt, &auth_seed_id, NULL);
+
+    acc->server_last_modified = tmp;
+
+    if (!acc_info_res) {
+        // make sure vault is synced (with new salt), then
+        // memcpy(acc->salt, salt, SALT_LEN);
+        // acc->auth_seed_id = auth_seed_id;
+        // key change required
+        return false; // TODO:
+    } else if (acc_info_res != E_CLIENTUPTODATE) {
+        util_log(LOG_ERROR, "Failed to get remote account info! (call returned %d)", acc_info_res);
+        pwmngr_disconnect();
+        return false;
+    } // else: already up to date
+
+    int res = remote_delete_account(acc->email, token_b64);
+    if (res == E_INTERNALERR) {
+        util_log(LOG_WARN, "Server returned E_INTERNALERR; retrying request...");
+        res = remote_delete_account(acc->email, token_b64);
+    }
+
+    if (res == E_INVALIDTOKEN || res == E_EXPIREDTOKEN) {
+
+        free(token_b64);
+        token_b64    = NULL;
+        int auth_res = remote_auth(acc->email, keys.auth_sk, &token_b64);
+        if (auth_res) {
+            util_log(LOG_ERROR, "Failed to authenticate with server! (code %d)", auth_res);
+            pwmngr_disconnect();
+            return false;
+        }
+
+        if (!save_token()) {
+            util_log(LOG_ERROR, "Failed to save new token!");
+            pwmngr_disconnect();
+            return false;
+        }
+
+        res = remote_delete_account(acc->email, token_b64);
+        if (res == E_INTERNALERR) {
+            util_log(LOG_WARN, "Server returned E_INTERNALERR; retrying request...");
+            res = remote_delete_account(acc->email, token_b64);
+        }
+    }
+
+    pwmngr_disconnect();
+
+    if (res < 0) {
+        util_log(LOG_ERROR, "Failed to delete remote account! (call returned %d)", res);
+        return false;
+    }
+
+    if (res) { // at this point, all recoverable errors have been handled
+        util_log(LOG_ERROR, "Failed to delete remote account! (code %d)", res);
+        return false;
+    }
+
+#endif
+
     // delete data
     if (!delete_user_data(uname)) {
         util_log(LOG_ERROR, "Failed to delete user data");
@@ -426,7 +888,10 @@ bool storage_delete_account(char *uname) {
             if (!accounts)
                 return false;
 
-            save_accounts();
+            if (!save_accounts()) {
+                util_log(LOG_ERROR, "Failed to remove account from file!");
+                return false;
+            }
             return true;
         }
     }
@@ -452,12 +917,22 @@ bool storage_change_passwd(char *uname, char *new_pass) {
 
             memcpy(accounts[i].passwd_hash, new_passwd_hash, HASH_LEN + SALT_LEN);
             free(new_passwd_hash);
-            save_accounts();
+            randombytes_buf(accounts[i].salt, SALT_LEN);
+            randombytes_buf(accounts[i].recovery_key, RK_LEN);
+            randombytes_buf(&accounts[i].auth_seed_id, sizeof(uint64_t));
+            if (accounts[i].auth_seed_id < 2)
+                accounts[i].auth_seed_id += 2;
+            if (!save_accounts()) {
+                util_log(LOG_ERROR, "Failed to save modified account to file!");
+                return false;
+            }
 
-            // force reencryption with new key
-            key_set    = false;
-            tmp_passwd = strdup(new_pass);
-            wipe_mem(aes_key, sizeof(aes_key));
+            sodium_memzero(&keys, sizeof(keys));
+            if (load_keys(&keys, new_pass, accounts[i].salt, accounts[i].auth_seed_id)) {
+                util_log(LOG_FATAL, "Failed to load new keys!");
+                return false;
+            }
+            keys.set = 1;
 
             return storage_write_user_vault();
         }
@@ -468,22 +943,171 @@ bool storage_change_passwd(char *uname, char *new_pass) {
     return false;
 }
 
+#ifndef NO_CLOUD
+
+bool load_token(char *passwd) {
+
+    if (!username) {
+        util_log(LOG_ERROR, "Username not set!");
+        return false;
+    }
+
+    if (token_b64) {
+        free(token_b64);
+        token_b64 = NULL;
+    }
+
+    Account *acc = get_account(username);
+    if (!acc) {
+        util_log(LOG_ERROR, "Failed to fetch account from username!");
+        return false;
+    }
+
+    uint8_t *salt         = NULL;
+    uint64_t auth_seed_id = 0;
+
+    if (!try_pwmngr_connect()) {
+        util_log(LOG_ERROR, "Failed to connect to remote server!");
+        return false;
+    }
+
+    int64_t tmp = acc->server_last_modified;
+
+    int acc_info_res = remote_get_account_info(acc->email, &tmp, &salt, &auth_seed_id, NULL);
+
+    acc->server_last_modified = tmp;
+
+    if (!acc_info_res) {
+        // TODO: make sure vault is synced (with new salt), then
+        memcpy(acc->salt, salt, SALT_LEN);
+        acc->auth_seed_id = auth_seed_id;
+    } else if (acc_info_res != E_CLIENTUPTODATE) {
+        util_log(LOG_ERROR, "Failed to get remote account info! (call returned %d)", acc_info_res);
+        pwmngr_disconnect();
+        return false;
+    } // else: already up to date
+
+    if (!acc_info_res) {
+        // TODO: make sure vault is synced (with new salt), then
+        if (token_b64) {
+            free(token_b64);
+            token_b64 = NULL;
+        }
+        memcpy(acc->salt, salt, SALT_LEN);
+        acc->auth_seed_id = auth_seed_id;
+        if (load_keys(&keys, passwd, acc->salt, acc->auth_seed_id)) {
+            util_log(LOG_ERROR, "Failed to reload keys!");
+            return false;
+        }
+    } else if (acc_info_res != E_CLIENTUPTODATE) {
+        util_log(LOG_ERROR, "Failed to get remote account info! (call returned %d)", acc_info_res);
+        pwmngr_disconnect();
+        return false;
+    } // else: already up to date
+
+    int auth_res = remote_auth(acc->email, keys.auth_sk, &token_b64);
+    if (auth_res) {
+        util_log(LOG_ERROR, "Failed to authenticate with server! (code %d)", auth_res);
+        pwmngr_disconnect();
+        return -4;
+    }
+
+    if (!save_token()) {
+        util_log(LOG_ERROR, "Failed to save new token!");
+        pwmngr_disconnect();
+        return -5;
+    }
+
+    pwmngr_disconnect();
+
+    return true;
+}
+
+#endif
+
+// wipes passwd on success
+bool storage_load_keys(const char *uname, char *passwd) {
+
+    if (keys.set) {
+        util_log(LOG_WARN, "storage_load_keys called while keys are already set!");
+        return false;
+    }
+
+    Account *acc = get_account(uname);
+    if (!acc) {
+        util_log(LOG_ERROR, "Failed to fetch account from username!");
+        return false;
+    }
+
+#ifndef NO_CLOUD
+
+    if (remote_sync_account(acc, &keys, passwd)) {
+        util_log(LOG_ERROR, "Failed to sync account with server!");
+        return false;
+    }
+
+#endif
+
+    sodium_memzero(&keys, sizeof(keys));
+    if (load_keys(&keys, passwd, acc->salt, acc->auth_seed_id)) {
+        util_log(LOG_ERROR, "Failed to load keys!");
+        return false;
+    }
+    keys.set = 1;
+    sodium_memzero(passwd, strlen(passwd));
+
+    return storage_write_user_vault();
+}
+
+void wipe_keys() {
+    sodium_memzero(&keys, sizeof(keys));
+}
+
+bool storage_login(char *uname, char *passwd) {
+
+#ifndef NO_CLOUD
+    if (!load_token(passwd)) {
+        util_log(LOG_FATAL, "Failed to load token from stored file or get a new one from server!");
+        return false;
+    }
+#endif
+
+    if (!storage_load_keys(uname, passwd)) { // also updates account info
+        util_log(LOG_FATAL, "Failed to load user keys!");
+        return false;
+    }
+
+    curr_prefs = get_user_prefs(uname);
+    if (!curr_prefs) {
+        util_log(LOG_FATAL, "Failed to load user preferences!");
+        return false;
+    }
+
+    return true;
+}
+
 uint8_t *get_user_salt() {
-    char        *vault_path = storage_get_user_vault_path(username);
-    VaultHeader *hdr        = ec_malloc(HEADER_LEN);
-    FILE        *fp         = fopen(vault_path, "rb");
-    free(vault_path);
-    if (!fp) {
-        util_log(LOG_ERROR, "Failed to open vault file for reading salt");
-        free(hdr);
+
+    if (!username) {
+        util_log(LOG_ERROR, "get_user_salt called with no username set!");
         return NULL;
     }
-    ec_fread(hdr, 1, HEADER_LEN, fp);
-    fclose(fp);
-    uint8_t *salt = ec_malloc(SALT_LEN);
-    memcpy(salt, hdr->salt, SALT_LEN);
-    free(hdr);
-    return salt;
+
+    uint8_t *uname_hash = sha_256_hash((uint8_t *)username, strlen(username));
+    if (!uname_hash) {
+        util_log(LOG_ERROR, "Failed to hash username! (OOM)");
+        return false;
+    }
+    for (int i = 0; i < num_accounts; i++) {
+        if (!memcmp(accounts[i].uname_hash, uname_hash, HASH_LEN)) {
+            free(uname_hash);
+            return accounts[i].salt;
+        }
+    }
+
+    free(uname_hash);
+    util_log(LOG_ERROR, "Failed to find account with username %s in accounts array", username);
+    return false;
 }
 
 char *storage_get_user_vault_path(char *uname) {
@@ -568,18 +1192,12 @@ int storage_dump_json(char *vault, char **out, uint8_t *key, bool pretty) {
     uint8_t *ciphertext = vault_buf + HEADER_LEN;
 
     if (key == NULL) {
-        if (!key_set) {
-            if (!derive_vault_key(tmp_passwd, hdr->salt, aes_key, sizeof(aes_key))) {
-                util_log(LOG_ERROR, "Failed to derive vault key");
-                return -9;
-            }
-
-            key_set = true;
-            wipe_mem(tmp_passwd, strlen(tmp_passwd));
-            free(tmp_passwd);
-            tmp_passwd = NULL;
+        if (!keys.set) {
+            util_log(LOG_ERROR, "storage_dump_json called with no keys provided/set!");
+            free(vault_buf);
+            return -7;
         }
-        key = aes_key;
+        key = keys.vault_key;
     }
 
     uint8_t *plaintext = ec_malloc(hdr->ciphertext_len + 1);
@@ -592,7 +1210,7 @@ int storage_dump_json(char *vault, char **out, uint8_t *key, bool pretty) {
     if (plaintext_len < 0) {
         util_log(LOG_ERROR, "Vault decryption failed (wrong password/corrupted vault)");
         free(plaintext);
-        return -7;
+        return -8;
     }
 
     if (pretty) {
@@ -601,7 +1219,7 @@ int storage_dump_json(char *vault, char **out, uint8_t *key, bool pretty) {
         if (!root) {
             util_log(LOG_ERROR, "Failed to parse JSON string");
             free(plaintext);
-            return -8;
+            return -9;
         }
 
         *out = cJSON_Print(root);
@@ -614,8 +1232,8 @@ int storage_dump_json(char *vault, char **out, uint8_t *key, bool pretty) {
     return plaintext_len;
 }
 
-bool encrypt_entries(PasswdEntry *entries, int num_entries, uint8_t *salt, uint8_t **ciphertext, int *ciphertext_len,
-                     uint8_t **nonce, uint8_t **tag) {
+bool encrypt_entries(PasswdEntry *entries, int num_entries, uint8_t **ciphertext, int *ciphertext_len, uint8_t **nonce,
+                     uint8_t **tag) {
     cJSON *root        = cJSON_CreateObject();
     cJSON *entries_arr = cJSON_AddArrayToObject(root, "entries");
 
@@ -632,18 +1250,9 @@ bool encrypt_entries(PasswdEntry *entries, int num_entries, uint8_t *salt, uint8
     char *json_data = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
 
-    if (!key_set) {
-        if (!derive_vault_key(tmp_passwd, salt, aes_key, sizeof(aes_key))) {
-            util_log(LOG_ERROR, "Failed to derive vault key");
-            free(json_data);
-            return false;
-        }
-        key_set = true;
-
-        // get plaintext password out of memory
-        wipe_mem(tmp_passwd, strlen(tmp_passwd));
-        free(tmp_passwd);
-        tmp_passwd = NULL;
+    if (!keys.set) {
+        util_log(LOG_ERROR, "encrypt_entries called with no key set!");
+        return false;
     }
 
     *nonce = ec_malloc(12);
@@ -653,7 +1262,8 @@ bool encrypt_entries(PasswdEntry *entries, int num_entries, uint8_t *salt, uint8
     *ciphertext       = ec_malloc(plaintext_len + 16);
     *tag              = ec_malloc(16);
 
-    *ciphertext_len = aes_gcm_encrypt((uint8_t *)json_data, plaintext_len, aes_key, *nonce, 12, *ciphertext, *tag);
+    *ciphertext_len =
+        aes_gcm_encrypt((uint8_t *)json_data, plaintext_len, keys.vault_key, *nonce, 12, *ciphertext, *tag);
 
     free(json_data);
 
@@ -729,23 +1339,14 @@ bool decrypt_entries_with_key(uint8_t *key, uint8_t *ciphertext, int ciphertext_
 }
 
 // Uses current user's key
-bool decrypt_entries(uint8_t *salt, uint8_t *ciphertext, int ciphertext_len, uint8_t *nonce, uint8_t *tag,
-                     PasswdEntry **entries, int *num_entries) {
-    if (!key_set) {
-        if (!derive_vault_key(tmp_passwd, salt, aes_key, sizeof(aes_key))) {
-            util_log(LOG_ERROR, "Failed to derive vault key");
-            return false;
-        }
-
-        key_set = true;
-
-        // get plaintext password out of memory
-        wipe_mem(tmp_passwd, strlen(tmp_passwd));
-        free(tmp_passwd);
-        tmp_passwd = NULL;
+bool decrypt_entries(uint8_t *ciphertext, int ciphertext_len, uint8_t *nonce, uint8_t *tag, PasswdEntry **entries,
+                     int *num_entries) {
+    if (!keys.set) {
+        util_log(LOG_ERROR, "decrypt_entries called with no key set!");
+        return false;
     }
 
-    return decrypt_entries_with_key(aes_key, ciphertext, ciphertext_len, nonce, tag, entries, num_entries);
+    return decrypt_entries_with_key(keys.vault_key, ciphertext, ciphertext_len, nonce, tag, entries, num_entries);
 }
 
 int storage_read_vault_with_key(char *vault_path, uint8_t *key, PasswdEntry **entries, VaultHeader **hdr) {
@@ -802,25 +1403,19 @@ int storage_read_vault_with_key(char *vault_path, uint8_t *key, PasswdEntry **en
     int      num_entries = -8;
 
     if (key == NULL) {
-        if (!key_set) {
-            if (!derive_vault_key(tmp_passwd, (*hdr)->salt, aes_key, sizeof(aes_key))) {
-                util_log(LOG_ERROR, "Failed to derive vault key");
-                return -9;
-            }
-
-            key_set = true;
-            wipe_mem(tmp_passwd, strlen(tmp_passwd));
-            free(tmp_passwd);
-            tmp_passwd = NULL;
+        if (!keys.set) {
+            util_log(LOG_ERROR, "No key provided & global keys not set!");
+            free(vault_buf);
+            return -7;
         }
-        key = aes_key;
+        key = keys.vault_key;
     }
 
     if (!decrypt_entries_with_key(key, ciphertext, (*hdr)->ciphertext_len, (*hdr)->nonce, (*hdr)->tag, entries,
                                   &num_entries)) {
         util_log(LOG_FATAL, "Failed to decrypt entries array");
         free(vault_buf);
-        return -7;
+        return -8;
     }
 
     free(vault_buf);
@@ -870,7 +1465,7 @@ bool storage_write_vault(char *vault_path, PasswdEntry *entries, int num_entries
     uint8_t *tag        = NULL;
 
     uint32_t clen = 0;
-    if (!encrypt_entries(entries, num_entries, salt, &ciphertext, (int32_t *)&clen, &nonce, &tag)) {
+    if (!encrypt_entries(entries, num_entries, &ciphertext, (int32_t *)&clen, &nonce, &tag)) {
         util_log(LOG_ERROR, "Failed to encrypt user vault");
         free(hdr);
         return false;
@@ -929,7 +1524,6 @@ bool storage_write_user_vault() {
     bool res = storage_write_vault(vault_path, entries, num_entries, salt);
 
     free(vault_path);
-    free(salt);
 
     return res;
 }

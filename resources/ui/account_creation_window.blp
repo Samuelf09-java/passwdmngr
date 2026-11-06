@@ -1,13 +1,17 @@
 using Gtk 4.0;
 
-template $AccountCreationWindow : Box {
+template $AccountCreationWindow: Box {
     orientation: vertical;
     halign: center;
     valign: center;
 
     Box {
         orientation: vertical;
-        css-classes: ["login-panel"];
+
+        css-classes: [
+            "login-panel",
+        ];
+
         spacing: 12;
         margin-top: 20;
         margin-bottom: 20;
@@ -21,12 +25,18 @@ template $AccountCreationWindow : Box {
             pixel-size: 128;
         }
 
+        Entry email_entry {
+            width-request: 300;
+            hexpand: false;
+            placeholder-text: _("Enter email address...");
+        }
+
         Entry uname_entry {
             width-request: 300;
             hexpand: false;
             placeholder-text: _("Enter username...");
         }
-        
+
         PasswordEntry passwd_entry {
             width-request: 300;
             hexpand: false;
@@ -40,7 +50,7 @@ template $AccountCreationWindow : Box {
             show-peek-icon: true;
             placeholder-text: _("Confirm new password...");
         }
-        
+
         Button create_account_button {
             label: _("Create account");
             clicked => $on_create_account_clicked();
@@ -49,6 +59,12 @@ template $AccountCreationWindow : Box {
         Button cancel_button {
             label: _("Cancel");
             clicked => $on_cancel_clicked();
+        }
+
+        CheckButton cloud_enabled_btn {
+            label: _("Enable cloud sync");
+            active: true;
+            toggled => $on_cloud_enabled_toggled();
         }
     }
 }

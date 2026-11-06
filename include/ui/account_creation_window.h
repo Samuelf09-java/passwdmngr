@@ -7,9 +7,11 @@ struct _AccountCreationWindow {
     GtkApplicationWindow parent_instance;
 
     GtkWidget *logo;
+    GtkWidget *email_entry;
     GtkWidget *uname_entry;
     GtkWidget *passwd_entry;
     GtkWidget *confirm_passwd_entry;
+    GtkWidget *cloud_enabled_btn;
 };
 
 G_DECLARE_FINAL_TYPE(AccountCreationWindow, account_creation_window, ACCOUNT_CREATION, WINDOW, GtkBox)

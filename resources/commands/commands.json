@@ -40,6 +40,11 @@
             ],
             "args": [
                 {
+                    "name": "email",
+                    "type": "STRING",
+                    "excl_group": 0
+                },
+                {
                     "name": "new_uname",
                     "type": "STRING",
                     "excl_group": 0
@@ -51,7 +56,8 @@
                 }
             ],
             "flags": [
-                "nologin"
+                "nologin",
+                "nocloud"
             ]
         },
         {

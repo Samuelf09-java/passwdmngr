@@ -1,3 +1,5 @@
+#include "server.h"
+#include "storage.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -12,6 +14,9 @@ char *hash_uname(const char *uname);
 uint8_t *sha_256_hash(uint8_t *data, size_t len);
 
 bool  derive_vault_key(const char *passwd, const uint8_t *salt, uint8_t *key_out, size_t key_len);
+int   passwd_to_keys(const char *password, uint8_t **salt, int salt_len, uint64_t *auth_seed_id, uint8_t *vault_key,
+                     uint8_t *auth_pk, uint8_t *auth_sk);
+int   load_keys(KeyRing *keys, const char *passwd, const uint8_t *salt, const uint64_t auth_seed_id);
 char *gen_passwd(int len, char *special, bool digits, bool uppers, bool lowers);
 
 int aes_gcm_encrypt(uint8_t *plaintext, int plaintext_len, uint8_t *key, uint8_t *iv, int iv_len, uint8_t *ciphertext,

@@ -14,12 +14,10 @@ static void on_login_clicked(GtkButton *button, LoginWindow *self) {
     const char *passwd = gtk_editable_get_text(GTK_EDITABLE(self->passwd_entry));
 
     if (verify_account(uname, passwd)) {
-        username   = strdup(uname);
-        tmp_passwd = strdup(passwd);
+        username = strdup(uname);
 
-        curr_prefs = get_user_prefs((char *)uname);
-        if (!curr_prefs) {
-            util_fatal_d("Failed to load user preferences!");
+        if (!storage_login((char *)uname, (char *)passwd)) {
+            util_fatal_d("Failed to login user!");
             return;
         }
 

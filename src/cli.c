@@ -319,11 +319,15 @@ static int run_login(char *uname) {
             free(username);
         username = strdup(uname);
 
-        tmp_passwd = strdup(passwd);
+        if (!storage_load_keys(uname, passwd)) {
+            util_log(LOG_FATAL, "Failed to load user keys!");
+            free(username);
+            username = NULL;
+            return -2;
+        }
 
         if (!storage_read_user_vault()) {
             util_log(LOG_FATAL, "Failed to read user vault!");
-            wipe_mem(tmp_passwd, strlen(tmp_passwd));
             free(username);
             username = NULL;
             return -2;
@@ -370,14 +374,7 @@ static int run_logout() {
     entries     = NULL;
     num_entries = 0;
 
-    if (tmp_passwd) {
-        wipe_mem(tmp_passwd, strlen(tmp_passwd));
-        free(tmp_passwd);
-        tmp_passwd = NULL;
-    }
-
-    wipe_mem(aes_key, sizeof(aes_key));
-    key_set = false;
+    wipe_keys();
 
     free(username);
     username = NULL;
@@ -402,7 +399,7 @@ static int run_port(char *vault) {
     return 0;
 }
 
-static int run_mkaccount(char *new_uname, char *new_passwd, bool nologin) {
+static int run_mkaccount(char *email, char *new_uname, char *new_passwd, bool nologin, bool nocloud) {
 
     REQUIRES_LOGOUT
 
@@ -421,9 +418,7 @@ static int run_mkaccount(char *new_uname, char *new_passwd, bool nologin) {
         printf("\n");
     }
 
-    tmp_passwd = strdup(new_passwd);
-
-    if (!create_new_account(new_uname, new_passwd)) {
+    if (!create_new_account(email, new_uname, new_passwd, !nocloud)) {
         free(new_uname);
         wipe_mem(new_passwd, strlen(new_passwd));
         free(new_passwd);
@@ -434,14 +429,8 @@ static int run_mkaccount(char *new_uname, char *new_passwd, bool nologin) {
     free(new_passwd);
 
     if (nologin) { // return early
-        if (tmp_passwd) {
-            wipe_mem(tmp_passwd, strlen(tmp_passwd));
-            free(tmp_passwd);
-            tmp_passwd = NULL;
-        }
 
-        wipe_mem(aes_key, sizeof(aes_key));
-        key_set = false;
+        wipe_keys();
 
         if (entries) {
             wipe_passwd_entries(entries, num_entries);
@@ -1382,7 +1371,6 @@ static int run_export(char *path, char *id_list) {
     util_log(LOG_INFO, "Exported %d entries to %s", num_ids, path);
 
     wipe_passwd_entries(export_entries, num_ids);
-    free(salt);
 
     free(export_path);
     if (export_ids)
@@ -2370,8 +2358,10 @@ static int handle_cmd(Command *cmd) {
         return run_port((char *)cmd->args[0].value);
 
     case MKACCOUNT_CMD:
-        bool_nullables[2] = cmd->args[2].value ? *(bool *)cmd->args[2].value : false;
-        return run_mkaccount((char *)cmd->args[0].value, (char *)cmd->args[1].value, bool_nullables[2]);
+        bool_nullables[3] = cmd->args[3].value ? *(bool *)cmd->args[3].value : false;
+        bool_nullables[4] = cmd->args[4].value ? *(bool *)cmd->args[4].value : false;
+        return run_mkaccount((char *)cmd->args[0].value, (char *)cmd->args[1].value, (char *)cmd->args[2].value,
+                             bool_nullables[3], bool_nullables[4]);
 
     case RMACCOUNT_CMD:
         bool_nullables[0] = cmd->args[0].value ? *(bool *)cmd->args[0].value : false;

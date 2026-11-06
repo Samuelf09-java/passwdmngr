@@ -465,7 +465,6 @@ static void on_export_file_response(GObject *dialog, GAsyncResult *result, gpoin
     util_log(LOG_INFO, "Exported %d entries to %s", data->num_ids, path);
 
     wipe_passwd_entries(export_entries, data->num_ids);
-    free(salt);
     g_free(path);
     g_free(data);
 }
@@ -1326,15 +1325,7 @@ static void logout_cb(GSimpleAction *action, GVariant *parameter, gpointer user_
     entries     = NULL;
     num_entries = 0;
 
-    // shouldn't be necessary but wipe password just in case wasn't already
-    if (tmp_passwd) {
-        wipe_mem(tmp_passwd, strlen(tmp_passwd));
-        free(tmp_passwd);
-        tmp_passwd = NULL;
-    }
-
-    wipe_mem(aes_key, sizeof(aes_key));
-    key_set = false;
+    wipe_keys();
 
     free(username);
     username = NULL;

@@ -105,6 +105,59 @@ bool derive_vault_key(const char *passwd, const uint8_t *salt, uint8_t *key_out,
     return res;
 }
 
+// Expects allocated buffers
+int passwd_to_keys(const char *password, uint8_t **salt, int salt_len, uint64_t *auth_seed_id, uint8_t *vault_key,
+                   uint8_t *auth_pk, uint8_t *auth_sk) {
+
+    if (!password || !salt || salt_len != SALT_LEN || !vault_key || !auth_pk || !auth_sk || !auth_seed_id ||
+        *auth_seed_id < 2)
+        return -1;
+
+    if (!*salt) {
+        *salt = ec_malloc(SALT_LEN);
+        randombytes_buf(*salt, SALT_LEN);
+    }
+
+    if (!*auth_seed_id) { // 0 == NULL, autofill
+        randombytes_buf(auth_seed_id, sizeof(uint64_t));
+        if (*auth_seed_id < 2)
+            *auth_seed_id += 2;
+    }
+
+    char *e_pass = ec_malloc(strlen(password) + 3 + 1);
+    sprintf(e_pass, "%s-mk", password); // fixed salt so key != password hash
+
+    uint8_t mkey[crypto_kdf_KEYBYTES];
+
+    if (crypto_pwhash(mkey, sizeof mkey, e_pass, strlen(e_pass), *salt, crypto_pwhash_OPSLIMIT_INTERACTIVE,
+                      crypto_pwhash_MEMLIMIT_INTERACTIVE, crypto_pwhash_ALG_DEFAULT)) {
+        free(e_pass);
+        return -2; // OOM
+    }
+
+    free(e_pass);
+
+    uint8_t auth_seed[crypto_sign_SEEDBYTES];
+
+    crypto_kdf_derive_from_key(vault_key, HASH_LEN, 1, "vault-key", mkey);
+    crypto_kdf_derive_from_key(auth_seed, sizeof(auth_seed), *auth_seed_id, "auth-seed", mkey);
+
+    crypto_sign_seed_keypair(auth_pk, auth_sk, auth_seed);
+
+    sodium_memzero(mkey, sizeof(mkey));
+    sodium_memzero(auth_seed, sizeof(auth_seed));
+
+    return 0;
+}
+
+int load_keys(KeyRing *keys, const char *passwd, const uint8_t *salt, const uint64_t auth_seed_id) {
+    int res = passwd_to_keys(passwd, (uint8_t **)&salt, SALT_LEN, (uint64_t *)&auth_seed_id, keys->vault_key,
+                             keys->auth_pk, keys->auth_sk);
+    if (!res)
+        keys->set = 1;
+    return res;
+}
+
 char *gen_passwd(int len, char *special, bool digits, bool uppers, bool lowers) {
 
     if (len <= 0) {
@@ -179,7 +232,7 @@ int aes_gcm_encrypt(uint8_t *plaintext, int plaintext_len, uint8_t *key, uint8_t
     // libsodium appends tag to ciphertext; extract last 16 bytes
     memcpy(tag, ciphertext + ciphertext_len - crypto_aead_aes256gcm_ABYTES, crypto_aead_aes256gcm_ABYTES);
 
-    return ciphertext_len > 0 ? (int)ciphertext_len - TAG_LEN : (int)ciphertext_len;
+    return ciphertext_len > 0 ? (int)ciphertext_len - (int)TAG_LEN : (int)ciphertext_len;
 }
 
 int aes_gcm_decrypt(uint8_t *ciphertext, int ciphertext_len, uint8_t *key, uint8_t *iv, int iv_len, uint8_t *tag,

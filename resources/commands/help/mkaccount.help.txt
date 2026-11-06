@@ -12,6 +12,7 @@ Aliases:
   mkacc
 
 Arguments:
+  email (string, optional): email for new account
   new_uname (string, optional): username for new account
     (if not provided, will prompt for username)
   new_passwd (string, optional): password for new account
@@ -22,3 +23,4 @@ Arguments:
 Flags:
   --nologin: Creates new account without logging in
     as the new user
+  --nocloud: Disables cloud syncing

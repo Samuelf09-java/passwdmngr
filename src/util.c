@@ -77,6 +77,14 @@ char *util_get_accounts_file() {
     return ret;
 }
 
+char *util_get_servers_file() {
+    char *basedir = util_get_app_dir();
+    char *ret     = ec_malloc(strlen(basedir) + strlen("servers.json") + 1);
+    sprintf(ret, "%sservers.json", basedir);
+    free(basedir);
+    return ret;
+}
+
 int dir_exists(const char *path) {
     return g_file_test(path, G_FILE_TEST_IS_DIR);
 }
